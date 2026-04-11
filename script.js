@@ -1,522 +1,224 @@
-const chatBox = document.getElementById('chat-box');
-const userInput = document.getElementById('user-input');
-const apiModal = document.getElementById('api-modal');
-const apiResult = document.getElementById('api-result');
-const genBtn = document.getElementById('gen-btn');
-const historyList = document.getElementById('history-list');
-const DEFAULT_API_KEY = 'HORROR_SECRET_666';
-const DEFAULT_BACKEND_URL = ['http:', 'https:'].includes(window.location.protocol)
-    ? window.location.origin
-    : 'http://127.0.0.1:5000';
-const BACKEND_BASE_URL = (window.HORROR_API_BASE_URL || localStorage.getItem('horror_backend_url') || DEFAULT_BACKEND_URL).replace(/\/$/, '');
-const CHAT_ENDPOINT = `${BACKEND_BASE_URL}/api/chat`;
-const BLOCKED_REPLY_DOMAINS = ['op.wtf', 'discord.gg', 't.me', 'telegram.me'];
-const MARKETING_KEYWORDS = ['proxy', 'proxies', 'cheaper', 'market', 'promo', 'promoted', 'promotion', 'sponsor', 'advert'];
-const LANGUAGE_LABELS = {
-    bash: 'Bash',
-    c: 'C',
-    cc: 'C++',
-    cpp: 'C++',
-    cs: 'C#',
-    csharp: 'C#',
-    css: 'CSS',
-    cxx: 'C++',
-    go: 'Go',
-    html: 'HTML',
-    java: 'Java',
-    javascript: 'JavaScript',
-    js: 'JavaScript',
-    jsx: 'JSX',
-    json: 'JSON',
-    kotlin: 'Kotlin',
-    md: 'Markdown',
-    markdown: 'Markdown',
-    plain: 'Plain text',
-    plaintext: 'Plain text',
-    php: 'PHP',
-    py: 'Python',
-    python: 'Python',
-    rb: 'Ruby',
-    ruby: 'Ruby',
-    rust: 'Rust',
-    sh: 'Shell',
-    shell: 'Shell',
-    sql: 'SQL',
-    swift: 'Swift',
-    ts: 'TypeScript',
-    tsx: 'TSX',
-    typescript: 'TypeScript',
-    xml: 'XML',
-    yaml: 'YAML',
-    yml: 'YAML',
-    zsh: 'Zsh',
-};
+let isGenerating = false;
+let currentChatHistory = []; // Local Memory Array
 
-let chats = JSON.parse(localStorage.getItem('horror_chats') || '[]');
-let currentChatId = null;
-
-// Modal Controls
-function openModal() { apiModal.classList.remove('hidden'); apiModal.classList.add('flex'); }
-function closeModal() { apiModal.classList.add('hidden'); apiModal.classList.remove('flex'); }
-
-// Free API Key Generation
-function generateAPIKey() {
-    const randomId = Math.random().toString(36).substr(2, 9).toUpperCase();
-    const newKey = `HORROR-${randomId}`;
+// Initialize App
+document.addEventListener('DOMContentLoaded', () => {
+    const savedKey = localStorage.getItem('horror_api_key');
+    if (!savedKey) {
+        openSettings();
+        switchTab('api');
+    }
     
-    apiResult.innerText = newKey;
-    apiResult.classList.remove('hidden');
-    genBtn.innerText = "KEY GRANTED";
-    genBtn.disabled = true;
-    genBtn.classList.add('opacity-50');
-
-    localStorage.setItem('horror_api_key', newKey);
-    navigator.clipboard.writeText(newKey);
-}
-
-function getAPIKey() {
-    return localStorage.getItem('horror_api_key') || DEFAULT_API_KEY;
-}
-
-function isSuspiciousReplyLine(line) {
-    const stripped = line.trim();
-    if (!stripped) return false;
-
-    const lowered = stripped.toLowerCase();
-    if (BLOCKED_REPLY_DOMAINS.some(domain => lowered.includes(domain))) {
-        return true;
+    // Load Local Memory
+    const savedHistory = localStorage.getItem('horror_memory');
+    if (savedHistory) {
+        currentChatHistory = JSON.parse(savedHistory);
+        renderHistoryList();
+        renderChatBox();
+    } else {
+        appendMessage('ai', "I have been waiting. What do you seek from the darkness?", false);
     }
+});
 
-    const keywordHits = MARKETING_KEYWORDS.filter(keyword => lowered.includes(keyword)).length;
-    return keywordHits >= 2;
-}
-
-function sanitizeAssistantText(text) {
-    if (typeof text !== 'string') return '';
-
-    const filteredLines = [];
-    let removedSuspiciousLine = false;
-
-    for (const line of text.split(/\r?\n/)) {
-        const stripped = line.trim();
-
-        if (isSuspiciousReplyLine(line)) {
-            removedSuspiciousLine = true;
-            continue;
-        }
-
-        if (removedSuspiciousLine && /^https?:\/\/\S+$/i.test(stripped)) {
-            continue;
-        }
-
-        filteredLines.push(line);
+// --- Settings Panel Logic ---
+function openSettings() {
+    document.getElementById('settings-modal').classList.replace('hidden', 'flex');
+    document.getElementById('system-prompt').value = localStorage.getItem('horror_system_prompt') || "";
+    
+    // Show existing API key if they have one
+    const savedKey = localStorage.getItem('horror_api_key');
+    if (savedKey) {
+        const res = document.getElementById('api-result');
+        res.innerText = savedKey;
+        res.classList.remove('hidden');
     }
-
-    return filteredLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-function escapeHtml(text) {
-    return String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+function closeSettings() {
+    document.getElementById('settings-modal').classList.replace('flex', 'hidden');
 }
 
-function normalizeCodeLanguage(language) {
-    const cleaned = String(language || '').trim();
-    if (!cleaned) return 'Code';
-
-    const firstToken = cleaned.split(/\s+/)[0]
-        .replace(/^[\[\{\(]+/, '')
-        .replace(/[\]\}\)]+$/, '')
-        .replace(/[^A-Za-z0-9+#.-]/g, '');
-
-    if (!firstToken) return 'Code';
-
-    const lower = firstToken.toLowerCase();
-    if (LANGUAGE_LABELS[lower]) {
-        return LANGUAGE_LABELS[lower];
-    }
-
-    return firstToken.charAt(0).toUpperCase() + firstToken.slice(1);
-}
-
-function formatInlineMarkdown(text) {
-    return escapeHtml(text)
-        .replace(/\*\*\*([^\n*]+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-        .replace(/\*\*([^\n*]+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>');
-}
-
-function appendInlineText(parent, text) {
-    const lines = String(text || '').split(/\r?\n/);
-
-    lines.forEach((line, index) => {
-        if (line) {
-            const parts = line.split(/(`[^`]*`)/g);
-            parts.forEach(part => {
-                if (!part) return;
-
-                if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
-                    const inlineCode = document.createElement('code');
-                    inlineCode.className = 'inline-code';
-                    inlineCode.textContent = part.slice(1, -1);
-                    parent.appendChild(inlineCode);
-                    return;
-                }
-
-                const span = document.createElement('span');
-                span.innerHTML = formatInlineMarkdown(part);
-                parent.appendChild(span);
-            });
-        }
-
-        if (index < lines.length - 1) {
-            parent.appendChild(document.createElement('br'));
-        }
-    });
-}
-
-function copyCodeToClipboard(text) {
-    const value = String(text || '');
-
-    if (navigator.clipboard && window.isSecureContext) {
-        return navigator.clipboard.writeText(value);
-    }
-
-    const fallbackInput = document.createElement('textarea');
-    fallbackInput.value = value;
-    fallbackInput.setAttribute('readonly', 'true');
-    fallbackInput.style.position = 'fixed';
-    fallbackInput.style.opacity = '0';
-    fallbackInput.style.left = '-9999px';
-    document.body.appendChild(fallbackInput);
-    fallbackInput.select();
-    document.execCommand('copy');
-    document.body.removeChild(fallbackInput);
-    return Promise.resolve();
-}
-
-function copyMessageToClipboard(text) {
-    return copyCodeToClipboard(text);
-}
-
-function copyPythonCommand() {
-    copyCodeToClipboard('python app.py');
-}
-
-function createCodeBlock(language, codeText) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'code-block';
-
-    const header = document.createElement('div');
-    header.className = 'code-block-header';
-
-    const label = document.createElement('span');
-    label.className = 'code-block-language';
-    label.textContent = normalizeCodeLanguage(language);
-
-    const copyButton = document.createElement('button');
-    copyButton.type = 'button';
-    copyButton.className = 'code-copy-btn';
-    copyButton.title = 'Copy code';
-    copyButton.setAttribute('aria-label', 'Copy code');
-    copyButton.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-        </svg>
-    `;
-
-    const normalizedCode = String(codeText || '').replace(/\r?\n$/, '');
-    let resetCopyState = null;
-
-    copyButton.addEventListener('click', async () => {
-        try {
-            await copyCodeToClipboard(normalizedCode);
-            copyButton.classList.add('copied');
-            copyButton.title = 'Copied';
-
-            if (resetCopyState) {
-                clearTimeout(resetCopyState);
-            }
-
-            resetCopyState = setTimeout(() => {
-                copyButton.classList.remove('copied');
-                copyButton.title = 'Copy code';
-            }, 1600);
-        } catch (error) {
-            copyButton.title = 'Copy failed';
-
-            if (resetCopyState) {
-                clearTimeout(resetCopyState);
-            }
-
-            resetCopyState = setTimeout(() => {
-                copyButton.title = 'Copy code';
-            }, 1600);
-        }
+function switchTab(tabName) {
+    // Hide all contents
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    // Remove active state from all buttons
+    document.querySelectorAll('.tab-btn').forEach(el => {
+        el.classList.remove('tab-active', 'text-[#a87ffb]');
+        el.classList.add('text-gray-400');
     });
 
-    const pre = document.createElement('pre');
-    pre.className = 'code-block-body';
-
-    const code = document.createElement('code');
-    code.textContent = normalizedCode;
-
-    pre.appendChild(code);
-    header.appendChild(label);
-    header.appendChild(copyButton);
-    wrapper.appendChild(header);
-    wrapper.appendChild(pre);
-
-    return wrapper;
+    // Show selected content
+    document.getElementById(`content-${tabName}`).classList.remove('hidden');
+    // Set active state on button
+    const activeBtn = document.getElementById(`tab-${tabName}`);
+    activeBtn.classList.add('tab-active', 'text-[#a87ffb]');
+    activeBtn.classList.remove('text-gray-400');
 }
 
-function parseFencePayload(payload) {
-    const normalized = String(payload || '').replace(/\r\n/g, '\n').replace(/^\n/, '');
-    if (!normalized.includes('\n')) {
-        return { language: '', code: normalized };
-    }
-
-    const [firstLine, ...rest] = normalized.split('\n');
-    const languageCandidate = firstLine.trim();
-    const looksLikeLanguage = /^[A-Za-z0-9+#.-]{1,30}$/.test(languageCandidate);
-
-    if (looksLikeLanguage) {
-        return { language: languageCandidate, code: rest.join('\n') };
-    }
-
-    return { language: '', code: normalized };
+// --- Account & Auth (Mock/Prep) ---
+function handleGoogleLogin() {
+    alert("To make Google Sign-in work, you must connect a backend identity provider like Firebase Auth. The UI is ready for your integration!");
+    // Example future logic:
+    // signInWithPopup(auth, provider).then((result) => { 
+    //     document.getElementById('auth-status').innerText = result.user.email;
+    //     document.getElementById('auth-status').classList.replace('text-red-500', 'text-green-500');
+    // });
 }
 
-function isCodeOnlyMessage(text) {
-    return /^```[\s\S]*```$/.test(String(text || '').trim());
+function saveSettings() {
+    const prompt = document.getElementById('system-prompt').value;
+    localStorage.setItem('horror_system_prompt', prompt);
+    alert("Persona saved to local memory.");
 }
 
-function renderFormattedMessage(text) {
-    const fragment = document.createDocumentFragment();
-    const content = String(text || '');
-    const codeBlockRegex = /```([\s\S]*?)```/g;
-    let lastIndex = 0;
-    let match;
+function generateAPIKey() {
+    const btn = document.getElementById('gen-btn');
+    const result = document.getElementById('api-result');
+    btn.innerText = "Channelling...";
+    btn.disabled = true;
 
-    while ((match = codeBlockRegex.exec(content)) !== null) {
-        const parsedFence = parseFencePayload(match[1]);
-        appendInlineText(fragment, content.slice(lastIndex, match.index));
-        fragment.appendChild(createCodeBlock(parsedFence.language, parsedFence.code));
-        lastIndex = codeBlockRegex.lastIndex;
-    }
-
-    appendInlineText(fragment, content.slice(lastIndex));
-    return fragment;
+    setTimeout(() => {
+        const newKey = "HORROR-" + Math.random().toString(36).substring(2, 15).toUpperCase();
+        localStorage.setItem('horror_api_key', newKey);
+        result.innerText = newKey;
+        result.classList.remove('hidden');
+        btn.innerText = "Generated New Key";
+        btn.disabled = false;
+    }, 1000);
 }
 
-async function requestChatReply(messages) {
-    const response = await fetch(CHAT_ENDPOINT, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': getAPIKey()
-        },
-        body: JSON.stringify({ messages })
-    });
-
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(data.error || `Backend request failed with status ${response.status}.`);
+function logout() {
+    if (confirm("This will purge your API key and local memory. Proceed?")) {
+        localStorage.clear();
+        window.location.reload();
     }
-
-    if (!data.reply) {
-        throw new Error('Backend returned no reply.');
-    }
-
-    const cleanedReply = sanitizeAssistantText(data.reply);
-    if (!cleanedReply) {
-        throw new Error('Backend returned an unsafe or empty reply. Please try again.');
-    }
-
-    return cleanedReply;
 }
 
-// History Controls
-function updateHistoryUI() {
-    historyList.innerHTML = '';
-    chats.forEach(chat => {
+// --- Memory & Chat Logic ---
+function saveMemoryLocally() {
+    localStorage.setItem('horror_memory', JSON.stringify(currentChatHistory));
+    renderHistoryList();
+}
+
+function renderHistoryList() {
+    const list = document.getElementById('history-list');
+    list.innerHTML = "";
+    
+    // Only show user queries in the sidebar
+    const userQueries = currentChatHistory.filter(msg => msg.role === 'user');
+    
+    if (userQueries.length === 0) {
+        list.innerHTML = `<div class="px-4 py-3 text-xs text-gray-600 italic">No memories...</div>`;
+        return;
+    }
+
+    // Show last 5 queries in sidebar
+    userQueries.slice(-5).reverse().forEach(msg => {
         const item = document.createElement('div');
-        // Gemini style history item
-        item.className = `history-item group relative truncate cursor-pointer transition-all ${chat.id === currentChatId ? 'active' : ''}`;
-        
-        item.innerHTML = `
-            <div onclick="loadChat('${chat.id}')" class="flex-1 truncate pr-6 font-medium">
-                ${escapeHtml(chat.title)}
-            </div>
-            <button onclick="renameChat('${chat.id}')" class="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 transition-opacity">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-            </button>
-        `;
-        historyList.appendChild(item);
+        item.className = "px-4 py-3 text-sm text-gray-400 hover:bg-[#212129] cursor-pointer truncate rounded-xl transition-colors";
+        item.innerText = msg.text;
+        list.appendChild(item);
     });
+}
+
+function renderChatBox() {
+    const chatBox = document.getElementById('chat-box');
+    chatBox.innerHTML = "";
+    if (currentChatHistory.length === 0) {
+        appendMessage('ai', "I have been waiting. What do you seek from the darkness?", false);
+    } else {
+        currentChatHistory.forEach(msg => appendMessage(msg.role, msg.text, false));
+    }
 }
 
 function createNewChat() {
-    currentChatId = Date.now().toString();
-    const newChat = {
-        id: currentChatId,
-        title: "New Chat",
-        date: new Date().toLocaleDateString(),
-        messages: [],
-        memory: ""
-    };
-    chats.unshift(newChat);
-    saveChats();
-    renderMessages();
-    updateHistoryUI();
+    currentChatHistory = [];
+    saveMemoryLocally();
+    renderChatBox();
 }
 
-function renameChat(id) {
-    const chat = chats.find(c => c.id === id);
-    const newTitle = prompt("Rename this chat:", chat.title);
-    if (newTitle && newTitle.trim()) {
-        chat.title = newTitle.trim();
-        saveChats();
-        updateHistoryUI();
+// --- UI Messaging Helpers ---
+function appendMessage(role, text, saveToMemory = true) {
+    const chatBox = document.getElementById('chat-box');
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+    
+    const bgColor = role === 'user' ? 'bg-[#a87ffb] text-black' : 'bg-[#16161a] border border-[#2d2d35] text-[#e2e2e6]';
+    
+    msgDiv.innerHTML = `
+        <div class="max-w-[85%] px-6 py-4 rounded-2xl shadow-lg ${bgColor}">
+            ${role === 'ai' ? '<p class="gemini-font font-bold text-[#a87ffb] mb-1 text-sm">Horror.ai</p>' : ''}
+            <p class="whitespace-pre-wrap leading-relaxed">${text}</p>
+        </div>
+    `;
+    
+    chatBox.appendChild(msgDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    if (saveToMemory) {
+        currentChatHistory.push({ role, text });
+        saveMemoryLocally();
     }
 }
 
-function loadChat(id) {
-    currentChatId = id;
-    renderMessages();
-    updateHistoryUI();
+function showTypingIndicator() { /* (Same as previous implementation) */
+    const chatBox = document.getElementById('chat-box');
+    const indicator = document.createElement('div');
+    indicator.id = 'typing-indicator';
+    indicator.className = 'flex justify-start';
+    indicator.innerHTML = `
+        <div class="bg-[#16161a] border border-[#2d2d35] rounded-2xl px-4 py-2">
+            <div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+        </div>
+    `;
+    chatBox.appendChild(indicator);
+    chatBox.scrollTop = chatBox.scrollHeight;
 }
+function removeTypingIndicator() { document.getElementById('typing-indicator')?.remove(); }
 
-function saveChats() { localStorage.setItem('horror_chats', JSON.stringify(chats)); }
+// --- Send API Request ---
+async function sendMessage() {
+    if (isGenerating) return;
 
-function renderMessages() {
-    chatBox.innerHTML = '';
-    const activeChat = chats.find(c => c.id === currentChatId);
-    if (!activeChat || activeChat.messages.length === 0) {
-        appendMessage('AI', 'How can I help you today?', 'chat-bubble-ai italic', false);
+    const input = document.getElementById('user-input');
+    const text = input.value.trim();
+    const apiKey = localStorage.getItem('horror_api_key');
+
+    if (!text) return;
+    if (!apiKey) {
+        openSettings();
+        switchTab('api');
         return;
     }
-    activeChat.messages.forEach(m => {
-        appendMessage(m.role === 'user' ? 'You' : 'AI', m.content, m.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai', false);
-    });
-}
 
-async function sendMessage() {
-    if (!currentChatId) createNewChat();
-    const message = userInput.value.trim();
-    if (!message) return;
+    appendMessage('user', text);
+    input.value = "";
+    isGenerating = true;
+    showTypingIndicator();
 
-    const activeChat = chats.find(c => c.id === currentChatId);
-    activeChat.messages.push({ role: 'user', content: message });
-    appendMessage('You', message, 'chat-bubble-user');
-    userInput.value = '';
-
-    if (activeChat.messages.length === 1) {
-        activeChat.title = message.substring(0, 30) + (message.length > 30 ? "..." : "");
-        updateHistoryUI();
-    }
-
-    const loaderId = appendMessage('AI', 'Thinking...', 'text-blue-500 italic animate-pulse');
+    const systemPrompt = localStorage.getItem('horror_system_prompt') || "You are a dark, mysterious AI assistant.";
 
     try {
-        const payloadMessages = [];
-        if (activeChat.memory) {
-            payloadMessages.push({ role: 'system', content: `CORE MEMORY: ${activeChat.memory}` });
-        }
-        payloadMessages.push(...activeChat.messages.slice(-10));
-
-        const aiReply = await requestChatReply(payloadMessages);
-        const loader = document.getElementById(loaderId);
-        if (loader) loader.remove();
-
-        activeChat.messages.push({ role: 'assistant', content: aiReply });
-        
-        if (activeChat.messages.length > 4) {
-            activeChat.memory = `Topic: ${activeChat.title}. Context: ${aiReply.substring(0, 100)}...`;
-        }
-
-        saveChats();
-        appendMessage('AI', aiReply, 'chat-bubble-ai');
-    } catch (err) {
-        const loader = document.getElementById(loaderId);
-        if (loader) loader.remove();
-        appendMessage('AI', err.message || 'I encountered a connection error. Please check your backend.', 'text-red-500');
-    }
-}
-
-function appendMessage(sender, text, classes, shouldScroll = true) {
-    const id = 'msg-' + Math.random().toString(36).substr(2, 9);
-    const div = document.createElement('div');
-    div.id = id;
-    div.className = `flex flex-col ${sender === 'You' ? 'items-end' : 'items-start'} w-full`;
-    
-    const bubble = document.createElement('div');
-    const codeOnlyAiMessage = sender === 'AI' && isCodeOnlyMessage(text);
-    bubble.className = `${classes}${codeOnlyAiMessage ? ' chat-bubble-ai-code-only' : ''}`;
-
-    if (sender === 'AI') {
-        const wrapper = document.createElement('div');
-        wrapper.className = codeOnlyAiMessage ? 'message-wrapper-code-only' : 'flex gap-4';
-
-        const content = document.createElement('div');
-        content.className = codeOnlyAiMessage ? 'message-content message-content-code-only' : 'message-content flex-1';
-        content.appendChild(renderFormattedMessage(text));
-
-        if (!codeOnlyAiMessage) {
-            const avatar = document.createElement('div');
-            avatar.className = 'w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex-shrink-0';
-            wrapper.appendChild(avatar);
-        }
-
-        wrapper.appendChild(content);
-        bubble.appendChild(wrapper);
-
-        // Add copy button for AI messages
-        const copyBtn = document.createElement('button');
-        copyBtn.className = 'copy-msg-btn';
-        copyBtn.type = 'button';
-        copyBtn.title = 'Copy message';
-        copyBtn.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
-        `;
-        copyBtn.addEventListener('click', async () => {
-            try {
-                await copyMessageToClipboard(text);
-                copyBtn.classList.add('copied');
-                setTimeout(() => copyBtn.classList.remove('copied'), 1600);
-            } catch (error) {
-                console.error('Copy failed:', error);
-            }
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+            body: JSON.stringify({ message: `[SYSTEM INSTRUCTION: ${systemPrompt}]\nUser: ${text}` })
         });
-        bubble.appendChild(copyBtn);
-    } else {
-        const content = document.createElement('div');
-        content.className = 'message-content';
-        content.appendChild(renderFormattedMessage(text));
-        bubble.appendChild(content);
+
+        const data = await response.json();
+        removeTypingIndicator();
+
+        if (data.error) appendMessage('ai', `Error: ${data.error}`);
+        else appendMessage('ai', data.reply);
+        
+    } catch (err) {
+        removeTypingIndicator();
+        appendMessage('ai', "The void is unstable. Check your connection.");
+    } finally {
+        isGenerating = false;
     }
-    
-    div.appendChild(bubble);
-    chatBox.appendChild(div);
-    if (shouldScroll) chatBox.scrollTop = chatBox.scrollHeight;
-    return id;
 }
 
-// Initialization
-if (chats.length > 0) {
-    currentChatId = chats[0].id;
-    renderMessages();
-    updateHistoryUI();
-} else {
-    createNewChat();
-}
-
-userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+document.getElementById('user-input')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+});
