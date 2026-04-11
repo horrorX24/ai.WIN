@@ -1,5 +1,4 @@
-g4f>=0.3.5.0
 flask
 flask-cors
-curl_cffi
 gunicorn
+curl_cffi
