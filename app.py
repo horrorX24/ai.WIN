@@ -1,18 +1,20 @@
 import os
+import random
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
+# vital: '.' tells Flask everything is in the root folder
 app = Flask(__name__, static_folder='.', template_folder='.')
 CORS(app)
 
 @app.route('/')
 def index():
-    # This serves your index.html from the root folder
     return send_from_directory('.', 'index.html')
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
-    return jsonify({"reply": "The void is listening."})
+    data = request.json
+    return jsonify({"reply": f"The void echoes: {data.get('message')}"})
 
 @app.route('/api/otp/request', methods=['POST'])
 def otp_req():
