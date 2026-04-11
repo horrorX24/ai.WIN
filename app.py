@@ -3,56 +3,33 @@ import os
 
 app = Flask(__name__)
 
-def gemini_pro(msg):
-	return f"[GeminiPro] {msg}"
+BLOCKED = ["free btc", "cheap proxies", "telegram", "t.me"]
 
-def pollinations_ai(msg):
-	return f"[pollinations] {msg}"
+def is_blocked(msg):
+	msg = ms.lower()
+	return any(x in msg for x in BLOCKED)
 
-def lmarena(msg):
-	return f"[LMArena] {msg}"
-
-def blackboxpro(msg):
-	return f"[BlackboxPro] {msg}"
-
-def choose_provider(msg):
-	msg = msg.lower()
-
-if "fast" in ms:
-	return "pollinations"
-elif "smart" in msg:
-	return "gemini"
-elif "code" in msg:
-	return "blackbox"
-else:
-	return"lmarena"
-
-def run_ai(msg):
-	provider = choose_provider(msg)
-
-if provider == "gemini"
-return gemini_pro(msg)
-elif provider == "pollinations":
-return pollinations_ai(msg)
-elif provider == "blackbox"
-return blackboxpro(msg)
-else:
-	return lmarena(msg)
+def ai_route(msg):
+	return f"HorrorAI:{msg}"
 
 @app.route("/")
-def home():
-	return "horror.ai multi-brain system"
+def ome():
+	return "horror.ai alive"
 
-@app.route("/chat", methods=["POST'])
-							 def chat():
-							 data = request.get_json() or {}
-							 msg = data.get("message", "")
+@app.route("/chat", methods=["POST"]}
+def chat():
+	data = request.get_json() or {}
+	msg = data.get("message", "")
 
-							 reply = run_ai(msg
+if is_blocked(msg):
+	return jsonify({
+		"reply": "Blocked by filter"
+	}). 403
 
-							 return jsonify({"reply":reply})
+reply = ai_router(msg)
 
-							 if __name__ =="__main__"
-							 import os
-							 port = int(os.environ.get("PORT", 5000))
-							 app.run(host="0.0.0.0", port=port)
+return jsonify({"reply": reply})
+
+if __name__ == "__main__":
+	port = int(os.environ.get("PORT", 5000))
+	app.run(host= "0.0.0.0", port=port)
