@@ -10,11 +10,12 @@
         .gemini-font { font-family: 'Montserrat', sans-serif; }
         #chat-box::-webkit-scrollbar { width: 4px; }
         #chat-box::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-        .tab-active { background: #212129; color: #a87ffb; border-left: 2px solid #a87ffb; }
+        .tab-active { background: #212129; color: #a87ffb; border-left: 4px solid #a87ffb; }
         .hidden { display: none !important; }
+        body { background-color: #0f0f12; color: #e2e2e6; }
     </style>
 </head>
-<body class="bg-[#0f0f12] text-[#e2e2e6] min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
 
     <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-50 p-4">
         <div class="bg-[#16161a] border border-[#2d2d35] rounded-2xl max-w-3xl w-full flex overflow-hidden shadow-2xl min-h-[450px]">
@@ -27,100 +28,116 @@
                 <button onclick="switchTab('personalization')" id="tab-personalization" class="tab-btn flex items-center gap-3 px-6 py-4 text-gray-400 hover:text-white text-sm font-bold transition-all text-left border-l-2 border-transparent">
                     Personalization
                 </button>
-                <button onclick="switchTab('api')" id="tab-api" class="tab-btn flex items-center gap-3 px-6 py-4 text-gray-400 hover:text-white text-sm font-bold transition-all text-left border-l-2 border-transparent">
-                    API Access
-                </button>
                 <div class="mt-auto px-4">
                     <button onclick="closeSettings()" class="w-full py-2 text-gray-500 hover:text-gray-300 text-sm font-medium">Close Panel</button>
                 </div>
             </div>
 
             <div class="w-2/3 p-8">
-                
                 <div id="content-account" class="tab-content space-y-6">
                     <h3 class="text-lg font-bold text-white mb-2">Access the Void</h3>
-                    
                     <div id="otp-input-phase">
-                        <p class="text-sm text-gray-400 mb-4">Enter details to receive your access code.</p>
                         <div class="flex gap-2 mb-4">
-                            <select id="otp-country" class="bg-[#212129] border border-[#2d2d35] rounded-xl px-2 text-white outline-none focus:border-[#a87ffb]">
+                            <select id="otp-country" class="bg-[#212129] border border-[#2d2d35] rounded-xl px-2 text-white outline-none">
                                 <option value="+91">🇮🇳 +91</option>
                                 <option value="+1">🇺🇸 +1</option>
-                                <option value="+44">🇬🇧 +44</option>
-                                <option value="+61">🇦🇺 +61</option>
                             </select>
-                            <input type="text" id="otp-contact" placeholder="Email or Phone" class="flex-1 bg-[#212129] border border-[#2d2d35] rounded-xl p-3 text-sm focus:outline-none focus:border-[#a87ffb]">
+                            <input type="text" id="otp-contact" placeholder="Email or Phone" class="flex-1 bg-[#212129] border border-[#2d2d35] rounded-xl p-3 text-sm focus:outline-none">
                         </div>
-                        <button onclick="requestOTP()" id="otp-req-btn" class="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200 transition-all">
-                            Send Access Code
-                        </button>
+                        <button onclick="requestOTP()" id="otp-req-btn" class="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200">Send Access Code</button>
                     </div>
 
                     <div id="otp-verify-phase" class="hidden">
-                        <p class="text-sm text-center text-gray-400 mb-4">Enter the 6-digit code</p>
-                        <input type="text" id="otp-code" maxlength="6" placeholder="000000" class="w-full bg-[#212129] border border-[#2d2d35] rounded-xl p-4 text-center text-3xl tracking-[0.5em] mb-4 focus:outline-none focus:border-[#a87ffb]">
-                        <button onclick="verifyOTP()" class="w-full bg-[#a87ffb] text-black font-bold py-3 rounded-xl hover:bg-[#9060eb]">Verify Identity</button>
-                        <button onclick="resetOTP()" class="w-full mt-4 text-xs text-gray-600">Change contact info</button>
-                    </div>
-
-                    <div class="pt-6 border-t border-[#2d2d35] mt-6">
-                        <button onclick="logout()" class="w-full bg-red-900/10 hover:bg-red-900/30 text-red-500 font-bold py-3 rounded-xl transition-all border border-red-900/30">Log Out & Clear Local Data</button>
+                        <input type="text" id="otp-code" maxlength="6" placeholder="000000" class="w-full bg-[#212129] border border-[#2d2d35] rounded-xl p-4 text-center text-3xl tracking-[0.5em] mb-4">
+                        <button onclick="verifyOTP()" class="w-full bg-[#a87ffb] text-black font-bold py-3 rounded-xl">Verify Identity</button>
                     </div>
                 </div>
 
                 <div id="content-personalization" class="tab-content hidden space-y-6">
                     <h3 class="text-lg font-bold text-white mb-2">AI Behavior</h3>
-                    <textarea id="system-prompt" rows="4" class="w-full bg-[#212129] border border-[#2d2d35] rounded-xl p-4 text-sm text-gray-300 focus:outline-none focus:border-[#a87ffb]" placeholder="E.g. Speak like a Victorian ghost..."></textarea>
-                    <button onclick="saveSettings()" class="bg-[#a87ffb] hover:bg-[#9060eb] text-black font-bold py-2 px-6 rounded-xl transition-all w-full">Save Persona</button>
+                    <textarea id="system-prompt" rows="4" class="w-full bg-[#212129] border border-[#2d2d35] rounded-xl p-4 text-sm" placeholder="E.g. Speak like a Victorian ghost..."></textarea>
+                    <button onclick="saveSettings()" class="bg-[#a87ffb] text-black font-bold py-2 px-6 rounded-xl w-full">Save Persona</button>
                 </div>
-
-                <div id="content-api" class="tab-content hidden space-y-6">
-                    <h3 class="text-lg font-bold text-white mb-2">API Access</h3>
-                    <div id="api-result" class="hidden p-4 bg-[#212129] border border-[#2d2d35] rounded-xl select-all font-mono text-[#a87ffb] break-all mb-4 text-center"></div>
-                    <button onclick="generateAPIKey()" id="gen-btn" class="w-full bg-[#a87ffb] hover:bg-[#9060eb] text-black font-bold py-3 rounded-xl transition-all">Generate New Key</button>
-                </div>
-
             </div>
         </div>
     </div>
 
     <div class="flex w-full h-screen overflow-hidden">
-        <aside class="w-72 flex flex-col shadow-sm border-r border-[#2d2d35] bg-[#0f0f12]">
+        <aside class="w-72 flex flex-col border-r border-[#2d2d35] bg-[#0f0f12]">
             <div class="p-6">
-                <button onclick="createNewChat()" class="w-full flex items-center justify-center gap-2 bg-[#212129] hover:bg-[#2d2d35] text-[#e2e2e6] font-medium py-3 px-4 rounded-full transition-all border border-[#2d2d35]">
-                    New Chat
-                </button>
+                <button onclick="location.reload()" class="w-full bg-[#212129] text-[#e2e2e6] font-medium py-3 rounded-full border border-[#2d2d35]">New Chat</button>
             </div>
-            <div class="px-6 py-2 text-xs font-bold text-gray-500 uppercase tracking-widest flex justify-between">
-                <span>Memory</span>
-                <span id="auth-status" class="text-[10px] text-red-500">Local Only</span>
-            </div>
-            <div id="history-list" class="flex-1 overflow-y-auto space-y-1 p-2"></div>
+            <div class="flex-1"></div>
             <div class="p-4 border-t border-[#2d2d35]">
-                <button onclick="openSettings()" class="w-full flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-[#212129] rounded-xl transition-all">
-                    Settings & Account
-                </button>
+                <button onclick="openSettings()" class="w-full text-gray-400 hover:text-white px-4 py-3 text-left">Settings & Account</button>
             </div>
         </aside>
 
-        <main class="flex-1 flex flex-col bg-[#0f0f12]">
-            <header class="p-4 border-b border-[#2d2d35] bg-[#0f0f12]/50 backdrop-blur-md sticky top-0 z-10 text-center">
-                <h1 class="gemini-font text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#a87ffb] to-[#7f5fff]">Horror.ai</h1>
+        <main class="flex-1 flex flex-col">
+            <header class="p-4 border-b border-[#2d2d35] text-center">
+                <h1 class="gemini-font text-2xl font-bold text-[#a87ffb]">Horror.ai</h1>
             </header>
-
-            <div class="flex-1 flex flex-col relative overflow-hidden max-w-4xl mx-auto w-full">
-                <div id="chat-box" class="flex-1 overflow-y-auto p-6 md:p-12 space-y-8"></div>
-                
-                <div class="p-6">
-                    <div class="flex items-center px-6 py-2 gap-4 border border-[#2d2d35] rounded-2xl bg-[#16161a] shadow-xl focus-within:border-[#a87ffb] transition-all">
-                        <input type="text" id="user-input" placeholder="Type a message..." class="flex-1 py-3 bg-transparent text-[#e2e2e6] placeholder-gray-500 focus:outline-none text-lg" onkeypress="if(event.key==='Enter') sendMessage()">
-                        <button onclick="sendMessage()" class="bg-[#a87ffb] hover:bg-[#9060eb] text-black font-bold py-2 px-6 rounded-xl transition-all">Send</button>
-                    </div>
+            <div id="chat-box" class="flex-1 overflow-y-auto p-6 space-y-8"></div>
+            <div class="p-6">
+                <div class="flex items-center px-6 py-2 gap-4 border border-[#2d2d35] rounded-2xl bg-[#16161a]">
+                    <input type="text" id="user-input" placeholder="Type a message..." class="flex-1 py-3 bg-transparent text-white outline-none">
+                    <button onclick="sendMessage()" class="bg-[#a87ffb] text-black font-bold py-2 px-6 rounded-xl">Send</button>
                 </div>
             </div>
         </main>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        // CORE JAVASCRIPT
+        function openSettings() { document.getElementById('settings-modal').classList.remove('hidden'); document.getElementById('settings-modal').classList.add('flex'); }
+        function closeSettings() { document.getElementById('settings-modal').classList.add('hidden'); document.getElementById('settings-modal').classList.remove('flex'); }
+        
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById('content-' + tab).classList.remove('hidden');
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
+            document.getElementById('tab-' + tab).classList.add('tab-active');
+        }
+
+        async function requestOTP() {
+            const contact = document.getElementById('otp-contact').value;
+            const country = document.getElementById('otp-country').value;
+            const ua = navigator.userAgent.toLowerCase();
+            const device = ua.includes("android") ? "android" : (ua.includes("iphone") ? "ios" : "desktop");
+
+            const res = await fetch('/api/otp/request', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({contact, countryCode: contact.includes('@') ? '' : country, device})
+            });
+            if (res.ok) {
+                alert("Code sent. Check your " + (contact.includes('@') ? "email" : (device === "android" ? "WhatsApp" : "Messages")));
+                document.getElementById('otp-input-phase').classList.add('hidden');
+                document.getElementById('otp-verify-phase').classList.remove('hidden');
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const chatBox = document.getElementById('chat-box');
+            if (!input.value.trim()) return;
+
+            chatBox.innerHTML += `<div class="flex justify-end"><div class="bg-[#a87ffb] text-black px-4 py-2 rounded-xl">${input.value}</div></div>`;
+            const text = input.value;
+            input.value = "";
+
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({message: text})
+            });
+            const data = await res.json();
+            chatBox.innerHTML += `<div class="flex justify-start"><div class="bg-[#16161a] border border-[#2d2d35] px-4 py-2 rounded-xl">${data.reply}</div></div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // Handle Enter key
+        document.getElementById('user-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
+    </script>
 </body>
 </html>
