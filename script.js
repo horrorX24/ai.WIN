@@ -1,24 +1,53 @@
-// --- LOGGING FOR DEBUGGING ---
-console.log("VOID ENGINE: Initializing...");
+/**
+ * Horror.ai - The Smart Void Link
+ * Detects OS to optimize OTP delivery
+ */
 
-// --- GLOBAL STATE ---
-window.isGenerating = false;
-window.currentChatHistory = [];
+// --- Global State ---
+let isGenerating = false;
+let currentChatHistory = [];
 
-// --- 1. SETTINGS PANEL LOGIC (ATTACHED TO WINDOW) ---
+// --- Initialization ---
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("Horror.ai: Void Link Established.");
+    
+    // 1. Setup Auth UI
+    const token = localStorage.getItem('horror_user_token');
+    if (token) {
+        const contact = localStorage.getItem('horror_user_contact');
+        const authStatus = document.getElementById('auth-status');
+        if (authStatus) {
+            authStatus.innerText = `Bound: ${contact}`;
+            authStatus.classList.replace('text-red-500', 'text-[#a87ffb]');
+        }
+    }
+
+    // 2. Load Memory
+    const savedMemory = localStorage.getItem('horror_memory');
+    if (savedMemory) {
+        currentChatHistory = JSON.parse(savedMemory);
+        renderChatBox();
+    } else {
+        appendMessage('ai', "I have been waiting. What do you seek from the darkness?", false);
+    }
+});
+
+// --- Device Intelligence ---
+function getDeviceType() {
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes("android")) return "android";
+    if (ua.includes("iphone") || ua.includes("ipad")) return "ios";
+    return "desktop";
+}
+
+// --- Settings & UI ---
+
 window.openSettings = function() {
-    console.log("UI: Opening Settings...");
     const modal = document.getElementById('settings-modal');
     if (modal) {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
-        
-        // Load the stored persona into the textbox
-        const savedPrompt = localStorage.getItem('horror_system_prompt');
-        const textarea = document.getElementById('system-prompt');
-        if (textarea) textarea.value = savedPrompt || "";
-    } else {
-        alert("Critical Error: 'settings-modal' ID missing in HTML!");
+        document.getElementById('system-prompt').value = localStorage.getItem('horror_system_prompt') || "";
     }
 };
 
@@ -31,34 +60,29 @@ window.closeSettings = function() {
 };
 
 window.switchTab = function(tabName) {
-    // Hide all tab sections
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    // Reset tab button colors
-    document.querySelectorAll('.tab-btn').forEach(el => {
-        el.classList.remove('tab-active', 'text-[#a87ffb]');
-        el.classList.add('text-gray-400');
-    });
-
-    // Show selected tab
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('tab-active', 'text-[#a87ffb]'));
+    
     document.getElementById(`content-${tabName}`).classList.remove('hidden');
-    const activeBtn = document.getElementById(`tab-${tabName}`);
-    if (activeBtn) {
-        activeBtn.classList.add('tab-active', 'text-[#a87ffb]');
-    }
+    const btn = document.getElementById(`tab-${tabName}`);
+    if (btn) btn.classList.add('tab-active', 'text-[#a87ffb]');
 };
 
 window.saveSettings = function() {
     const prompt = document.getElementById('system-prompt').value;
     localStorage.setItem('horror_system_prompt', prompt);
-    alert("Persona Bound.");
+    alert("Persona Updated.");
 };
 
-// --- 2. AUTH / OTP LOGIC ---
-window.requestOTP = async function() {
-    const email = document.getElementById('otp-email').value;
-    const btn = document.getElementById('otp-req-btn');
+// --- Smart OTP Logic ---
 
-    if (!email || !email.includes('@')) return alert("Enter a valid email.");
+window.requestOTP = async function() {
+    const contact = document.getElementById('otp-contact').value.trim();
+    const countryCode = document.getElementById('otp-country').value;
+    const btn = document.getElementById('otp-req-btn');
+    const device = getDeviceType();
+
+    if (!contact) return alert("Enter your details to proceed.");
 
     btn.innerText = "Channelling...";
     btn.disabled = true;
@@ -67,18 +91,32 @@ window.requestOTP = async function() {
         const res = await fetch('/api/otp/request', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
+            body: JSON.stringify({ 
+                contact: contact,
+                countryCode: contact.includes('@') ? '' : countryCode,
+                device: device // Sending device info to backend
+            })
         });
 
+        const data = await res.json();
         if (res.ok) {
-            document.getElementById('otp-email-area').classList.add('hidden');
-            document.getElementById('otp-code-area').classList.remove('hidden');
-            localStorage.setItem('pending_email', email);
+            document.getElementById('otp-input-phase').classList.add('hidden');
+            document.getElementById('otp-verify-phase').classList.remove('hidden');
+            
+            // Logic for visual feedback
+            const target = contact.includes('@') ? contact : (countryCode + contact.replace(/^0+/, ''));
+            localStorage.setItem('pending_target', target);
+
+            // Notify user where to look based on device
+            if (!contact.includes('@')) {
+                const msg = device === "android" ? "Check your WhatsApp." : "Check your Messages.";
+                alert(`Code sent to ${target}. ${msg}`);
+            }
         } else {
-            alert("The void rejected this request.");
+            alert(data.error || "The void rejected the request.");
         }
-    } catch (err) {
-        alert("Server connection failed.");
+    } catch (e) {
+        alert("The connection to the server snapped.");
     } finally {
         btn.innerText = "Send Access Code";
         btn.disabled = false;
@@ -86,39 +124,38 @@ window.requestOTP = async function() {
 };
 
 window.verifyOTP = async function() {
-    const code = document.getElementById('otp-code').value;
-    const email = localStorage.getItem('pending_email');
+    const code = document.getElementById('otp-code').value.trim();
+    const target = localStorage.getItem('pending_target');
 
     try {
         const res = await fetch('/api/otp/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, code })
+            body: JSON.stringify({ target, code })
         });
 
         const data = await res.json();
         if (data.success) {
             localStorage.setItem('horror_user_token', data.token);
-            localStorage.setItem('horror_user_email', email);
+            localStorage.setItem('horror_user_contact', target);
             window.location.reload();
         } else {
-            alert("Invalid Code.");
+            alert("Invalid code. The void does not recognize you.");
         }
-    } catch (err) {
-        alert("Verification error.");
+    } catch (e) {
+        alert("Verification failed.");
     }
 };
 
-window.logout = function() {
-    if (confirm("Disconnect? All local memory will be purged.")) {
-        localStorage.clear();
-        window.location.reload();
-    }
+window.resetOTP = function() {
+    document.getElementById('otp-input-phase').classList.remove('hidden');
+    document.getElementById('otp-verify-phase').classList.add('hidden');
 };
 
-// --- 3. CHAT ENGINE ---
+// --- Chat Interface ---
+
 window.sendMessage = async function() {
-    if (window.isGenerating) return;
+    if (isGenerating) return;
 
     const input = document.getElementById('user-input');
     const text = input.value.trim();
@@ -126,79 +163,80 @@ window.sendMessage = async function() {
 
     appendMessage('user', text);
     input.value = "";
-    window.isGenerating = true;
+    isGenerating = true;
     showTypingIndicator();
 
-    const persona = localStorage.getItem('horror_system_prompt') || "Be a scary AI.";
+    const persona = localStorage.getItem('horror_system_prompt') || "Be a mysterious horror entity.";
 
     try {
-        const response = await fetch('/api/chat', {
+        const res = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: text, persona: persona })
+            body: JSON.stringify({ message: text, persona })
         });
-        const data = await response.json();
+
+        const data = await res.json();
         removeTypingIndicator();
         appendMessage('ai', data.reply || "...");
     } catch (err) {
         removeTypingIndicator();
-        appendMessage('ai', "The connection was severed.");
+        appendMessage('ai', "The connection to the void has snapped.");
     } finally {
-        window.isGenerating = false;
+        isGenerating = false;
     }
 };
 
-// --- 4. UI HELPERS ---
 function appendMessage(role, text, save = true) {
     const chatBox = document.getElementById('chat-box');
-    const div = document.createElement('div');
-    div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+    if (!chatBox) return;
     
-    const color = role === 'user' ? 'bg-[#a87ffb] text-black' : 'bg-[#16161a] border border-[#2d2d35] text-[#e2e2e6]';
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+    const bgColor = role === 'user' ? 'bg-[#a87ffb] text-black' : 'bg-[#16161a] border border-[#2d2d35] text-[#e2e2e6]';
     
-    div.innerHTML = `
-        <div class="max-w-[85%] px-6 py-4 rounded-2xl shadow-lg ${color}">
-            ${role === 'ai' ? '<p class="text-[10px] font-bold text-[#a87ffb] mb-1">HORROR.AI</p>' : ''}
-            <p class="whitespace-pre-wrap">${text}</p>
+    msgDiv.innerHTML = `
+        <div class="max-w-[85%] px-6 py-4 rounded-2xl shadow-lg ${bgColor}">
+            ${role === 'ai' ? '<p class="text-[10px] font-bold text-[#a87ffb] mb-1 uppercase tracking-widest">Horror.ai</p>' : ''}
+            <p class="whitespace-pre-wrap leading-relaxed">${text}</p>
         </div>
     `;
-    chatBox.appendChild(div);
+    
+    chatBox.appendChild(msgDiv);
     chatBox.scrollTop = chatBox.scrollHeight;
 
     if (save) {
-        window.currentChatHistory.push({ role, text });
-        localStorage.setItem('horror_memory', JSON.stringify(window.currentChatHistory));
+        currentChatHistory.push({ role, text });
+        localStorage.setItem('horror_memory', JSON.stringify(currentChatHistory));
     }
 }
 
 function showTypingIndicator() {
     const chatBox = document.getElementById('chat-box');
-    const div = document.createElement('div');
-    div.id = 'typing-indicator';
-    div.className = 'flex justify-start';
-    div.innerHTML = `<div class="bg-[#16161a] border border-[#2d2d35] rounded-2xl px-4 py-2"><div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
-    chatBox.appendChild(div);
+    const indicator = document.createElement('div');
+    indicator.id = 'typing-indicator';
+    indicator.className = 'flex justify-start';
+    indicator.innerHTML = `
+        <div class="bg-[#16161a] border border-[#2d2d35] rounded-2xl px-4 py-2">
+            <div class="flex gap-1"><span class="w-1 h-1 bg-gray-500 rounded-full animate-bounce"></span><span class="w-1 h-1 bg-gray-500 rounded-full animate-bounce [animation-delay:0.2s]"></span><span class="w-1 h-1 bg-gray-500 rounded-full animate-bounce [animation-delay:0.4s]"></span></div>
+        </div>
+    `;
+    chatBox.appendChild(indicator);
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-function removeTypingIndicator() { document.getElementById('typing-indicator')?.remove(); }
+function removeTypingIndicator() {
+    document.getElementById('typing-indicator')?.remove();
+}
 
-// --- 5. APP STARTUP ---
-document.addEventListener('DOMContentLoaded', () => {
-    // Restore Memory
-    const memory = localStorage.getItem('horror_memory');
-    if (memory) {
-        window.currentChatHistory = JSON.parse(memory);
-        const chatBox = document.getElementById('chat-box');
+function renderChatBox() {
+    const chatBox = document.getElementById('chat-box');
+    if (chatBox) {
         chatBox.innerHTML = "";
-        window.currentChatHistory.forEach(m => appendMessage(m.role, m.text, false));
-    } else {
-        appendMessage('ai', "I have been waiting.", false);
+        currentChatHistory.forEach(msg => appendMessage(msg.role, msg.text, false));
     }
-});
+}
 
-// Listener for Enter Key
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && document.activeElement.id === 'user-input') {
         window.sendMessage();
     }
