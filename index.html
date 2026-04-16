@@ -3,57 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Horror.ai</title>
+    <title>Horror.ai | The Void</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #0f0f12; color: #e2e2e6; font-family: sans-serif; }
         .hidden { display: none !important; }
+        #chat-box::-webkit-scrollbar { width: 4px; }
+        #chat-box::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
+<body class="min-h-screen flex flex-col">
 
-    <div class="bg-[#16161a] border border-[#2d2d35] p-8 rounded-2xl w-full max-w-md shadow-2xl">
-        <h1 class="text-2xl font-bold text-[#a87ffb] mb-6 text-center">Horror.ai</h1>
+    <div id="auth-overlay" class="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4">
+        <div class="bg-[#16161a] border border-[#2d2d35] p-8 rounded-2xl w-full max-w-md shadow-2xl text-center">
+            <h1 class="text-3xl font-bold text-[#a87ffb] mb-6">Horror.ai</h1>
+            
+            <div id="auth-form">
+                <p class="text-sm text-gray-400 mb-6">Enter your Gmail. An entry link will be sent directly to your inbox.</p>
+                <input type="email" id="user-email" placeholder="name@gmail.com" 
+                       class="w-full bg-[#0f0f12] border border-[#2d2d35] p-4 rounded-xl outline-none focus:border-[#a87ffb] mb-4 text-center text-white">
+                <button id="send-link-btn" class="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200 transition-all">
+                    Send Link to Gmail
+                </button>
+            </div>
 
-        <div id="auth-ui">
-            <p class="text-sm text-gray-400 mb-4 text-center">Enter your Gmail. We will send an entry link directly to your inbox.</p>
-            <input type="email" id="email" placeholder="yourname@gmail.com" 
-                   class="w-full bg-[#0f0f12] border border-[#2d2d35] p-3 rounded-xl outline-none focus:border-[#a87ffb] mb-4">
-            <button id="send-btn" class="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200 transition-all">
-                Send Link to Gmail
-            </button>
-        </div>
-
-        <div id="loading-ui" class="hidden text-center py-10">
-            <p class="animate-pulse text-[#a87ffb] font-bold">VERIFYING IDENTITY...</p>
-            <p class="text-xs text-gray-500 mt-2">Connecting to the void via Firebase</p>
+            <div id="verifying-status" class="hidden py-4">
+                <p class="animate-pulse text-[#a87ffb] font-bold text-xl">VERIFYING...</p>
+                <p class="text-xs text-gray-500 mt-2">Connecting to the void via Firebase</p>
+            </div>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    <header class="p-4 border-b border-[#2d2d35] text-center font-bold text-[#a87ffb] text-xl">Horror.ai</header>
+    <main class="flex-1 flex flex-col max-w-4xl mx-auto w-full overflow-hidden">
+        <div id="chat-box" class="flex-1 overflow-y-auto p-6 space-y-4">
+            <div class="bg-[#16161a] border border-[#2d2d35] px-4 py-2 rounded-xl max-w-sm">The void awaits your whisper.</div>
+        </div>
+        <div class="p-6">
+            <div class="flex gap-4 bg-[#16161a] border border-[#2d2d35] p-2 rounded-2xl">
+                <input type="text" id="chat-input" placeholder="Type a message..." class="flex-1 bg-transparent px-4 text-white outline-none">
+                <button id="chat-send" class="bg-[#a87ffb] text-black px-6 py-2 rounded-xl font-bold">Send</button>
+            </div>
+        </div>
+    </main>
 
-        // TODO: REPLACE THESE WITH YOUR KEYS FROM FIREBASE SETTINGS
+    <script type="module">
+        // Import Firebase from CDN to ensure it works in one file
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        // Your specific Firebase configuration
         const firebaseConfig = {
-            apiKey: "AIzaSy...", 
+            apiKey: "AIzaSyDzlC2q7dypspwzhs6RpbpFOevPDpV_dMQ",
             authDomain: "ai-win-ww.firebaseapp.com",
             projectId: "ai-win-ww",
-            storageBucket: "ai-win-ww.appspot.com",
-            messagingSenderId: "...",
-            appId: "..."
+            storageBucket: "ai-win-ww.firebasestorage.app",
+            messagingSenderId: "786869083355",
+            appId: "1:786869083355:web:7532d9c4d0365a445300fe",
+            measurementId: "G-YX2YG2WRH2"
         };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
 
-        // --- 1. SEND LINK ---
-        document.getElementById('send-btn').onclick = async () => {
-            const email = document.getElementById('email').value;
-            const btn = document.getElementById('send-btn');
+        // 1. Check if user is already logged in
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('auth-overlay').classList.add('hidden');
+            }
+        });
+
+        // 2. Send Magic Link
+        document.getElementById('send-link-btn').onclick = async () => {
+            const email = document.getElementById('user-email').value;
+            const btn = document.getElementById('send-link-btn');
             
+            if(!email.includes('@')) {
+                alert("Please enter a valid Gmail address.");
+                return;
+            }
+
             const actionCodeSettings = {
-                url: window.location.href, // This brings them back to this same page
+                url: window.location.href, // Brings them back here
                 handleCodeInApp: true,
             };
 
@@ -62,18 +93,18 @@
                 btn.disabled = true;
                 await sendSignInLinkToEmail(auth, email, actionCodeSettings);
                 window.localStorage.setItem('emailForSignIn', email);
-                alert('Link sent! Open Gmail on this device and click the link.');
+                alert('Magic link sent! Check your Gmail inbox.');
             } catch (error) {
-                alert('Error: ' + error.message);
+                alert('Firebase Error: ' + error.message);
                 btn.innerText = "Send Link to Gmail";
                 btn.disabled = false;
             }
         };
 
-        // --- 2. CATCH THE RETURNING USER ---
+        // 3. Catch Returning User from Gmail Link
         if (isSignInWithEmailLink(auth, window.location.href)) {
-            document.getElementById('auth-ui').classList.add('hidden');
-            document.getElementById('loading-ui').classList.remove('hidden');
+            document.getElementById('auth-form').classList.add('hidden');
+            document.getElementById('verifying-status').classList.remove('hidden');
 
             let email = window.localStorage.getItem('emailForSignIn');
             if (!email) {
@@ -83,11 +114,28 @@
             signInWithEmailLink(auth, email, window.location.href)
                 .then(() => {
                     window.localStorage.removeItem('emailForSignIn');
-                    alert('Access Granted. Welcome.');
-                    // You can add logic here to show the chat interface
+                    document.getElementById('auth-overlay').classList.add('hidden');
                 })
-                .catch((error) => alert('Verification failed: ' + error.message));
+                .catch((error) => {
+                    alert('Verification failed: ' + error.message);
+                    document.getElementById('auth-form').classList.remove('hidden');
+                    document.getElementById('verifying-status').classList.add('hidden');
+                });
         }
+
+        // 4. Basic Chat UI Function
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const box = document.getElementById('chat-box');
+            if(!input.value.trim()) return;
+
+            box.innerHTML += `<div class="flex justify-end"><div class="bg-[#a87ffb] text-black px-4 py-2 rounded-xl max-w-xs">${input.value}</div></div>`;
+            input.value = "";
+            box.scrollTop = box.scrollHeight;
+        }
+
+        document.getElementById('chat-send').onclick = sendMessage;
+        document.getElementById('chat-input').onkeypress = (e) => { if(e.key === 'Enter') sendMessage(); };
     </script>
 </body>
 </html>
