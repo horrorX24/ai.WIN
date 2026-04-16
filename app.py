@@ -4,10 +4,7 @@ import requests
 from flask import Flask, request, jsonify, send_from_directory
 
 app = Flask(__name__, static_folder='.')
-
-# --- DATABASE PATH (Ensure this matches your Volume Mount) ---
 DB_PATH = '/app/data/users.db'
-ADMIN_KEY = "my-secret-key-123"
 
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -22,44 +19,44 @@ init_db()
 def index():
     return send_from_directory('.', 'index.html')
 
-# --- THE SECRET VIEW ---
-@app.route('/the-void-secrets')
-def admin_view():
-    key = request.args.get('key')
-    if key != ADMIN_KEY:
-        return "Forbidden", 403
-    
-    conn = sqlite3.connect(DB_PATH)
-    users = conn.execute('SELECT * FROM users').fetchall()
-    conn.close()
-    return {"database_content": users}
-
-# --- AI CHAT (Using Free Pollinations Provider) ---
+# --- THE ARENA & GEMINI INTEGRATION ---
 @app.route('/api/chat', methods=['POST'])
 def chat():
-    user_msg = request.json.get('message')
+    data = request.json
+    user_msg = data.get('message')
+    # Defaulting to Gemini-style model if not specified
+    chosen_model = data.get('model', 'gemini') 
+    
     try:
-        # Free provider: Pollinations
-        ai_url = f"https://text.pollinations.ai/{user_msg}?model=openai&system=You are Horror.ai, a helpful but mysterious AI."
-        response = requests.get(ai_url)
-        return jsonify({"reply": response.text})
-    except:
-        return jsonify({"reply": "The void is currently unreachable."})
+        if chosen_model == 'gemini':
+            # Gemini 1.5 Flash logic via Pollinations
+            api_url = f"https://text.pollinations.ai/{user_msg}?model=gemini"
+        else:
+            # Standard Horror.ai logic
+            api_url = f"https://text.pollinations.ai/{user_msg}?model=openai"
+            
+        response = requests.get(api_url, timeout=10)
+        
+        if response.status_code == 200:
+            return jsonify({"reply": response.text})
+        else:
+            return jsonify({"reply": "The Arena is currently closed. Try again later."})
+            
+    except Exception as e:
+        return jsonify({"reply": f"The void encountered an error: {str(e)}"}), 500
 
-# --- LOGIN/SIGNUP ---
+# --- AUTH ROUTES ---
 @app.route('/api/auth/<action>', methods=['POST'])
 def handle_auth(action):
     data = request.json
     u, p = data.get('username', '').lower(), data.get('password', '')
     conn = sqlite3.connect(DB_PATH)
-    
     if action == 'signup':
         try:
             conn.execute('INSERT INTO users VALUES (?, ?)', (u, p))
             conn.commit()
             return jsonify({"success": True})
-        except:
-            return jsonify({"error": "User exists"}), 400
+        except: return jsonify({"error": "User exists"}), 400
     else:
         user = conn.execute('SELECT * FROM users WHERE username=? AND password=?', (u, p)).fetchone()
         return jsonify({"success": True}) if user else (jsonify({"error": "Wrong login"}), 401)
