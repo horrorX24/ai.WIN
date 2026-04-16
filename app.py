@@ -1,60 +1,74 @@
-import os
-import sqlite3
-import requests
-from flask import Flask, request, jsonify, send_from_directory
+let currentChatId = null; // Track the active chat session
+let history = JSON.parse(localStorage.getItem('horror_history') || '[]');
 
-app = Flask(__name__, static_folder='.')
-DB_PATH = '/app/data/users.db'
+async function sendMessage() {
+    const input = document.getElementById('user-input');
+    const box = document.getElementById('chat-box');
+    const msg = input.value.trim();
+    if(!msg) return;
 
-def init_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute('CREATE TABLE IF NOT EXISTS users (username TEXT UNIQUE, password TEXT)')
-    conn.commit()
-    conn.close()
-
-init_db()
-
-@app.route('/')
-def index():
-    return send_from_directory('.', 'index.html')
-
-@app.route('/api/chat', methods=['POST'])
-def chat():
-    user_msg = request.json.get('message')
+    // Show User Message
+    box.innerHTML += `<div class="flex justify-end"><div class="bg-[#a87ffb] text-black p-3 rounded-xl text-sm max-w-xs">${msg}</div></div>`;
+    input.value = "";
     
-    # List of models to try if the first one fails
-    models = ["gemini", "openai", "mistral", "llama"]
-    
-    for model in models:
-        try:
-            # Adding a 5-second timeout so it switches fast if a model is slow
-            url = f"https://text.pollinations.ai/{user_msg}?model={model}&cache=false"
-            res = requests.get(url, timeout=5)
-            
-            if res.status_code == 200 and res.text.strip():
-                return jsonify({"reply": res.text})
-        except:
-            continue # Try the next model in the list
-            
-    return jsonify({"reply": "The abyss is currently full. Try again in a moment."}), 503
+    const typingId = "typing-" + Date.now();
+    box.innerHTML += `<div id="${typingId}" class="text-gray-500 text-xs italic">Horror is thinking...</div>`;
+    box.scrollTop = box.scrollHeight;
 
-@app.route('/api/auth/<action>', methods=['POST'])
-def auth(action):
-    data = request.json
-    u, p = data.get('username', '').lower(), data.get('password', '')
-    # Fallback to local DB if Volume isn't mounted yet
-    path = DB_PATH if os.path.exists('/app/data') else 'users.db'
-    conn = sqlite3.connect(path)
-    if action == 'signup':
-        try:
-            conn.execute('INSERT INTO users VALUES (?,?)', (u, p))
-            conn.commit()
-            return jsonify({"success": True})
-        except: return jsonify({"error": "Taken"}), 400
-    else:
-        user = conn.execute('SELECT * FROM users WHERE username=? AND password=?', (u,p)).fetchone()
-        return jsonify({"success": True}) if user else (jsonify({"error": "Fail"}), 401)
+    try {
+        const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ message: msg })
+        });
+        const data = await res.json();
+        document.getElementById(typingId).remove();
+        
+        // Show AI Message
+        box.innerHTML += `<div class="flex justify-start"><div class="bg-[#1a1a24] border border-[#2d2d35] p-3 rounded-xl text-sm max-w-xs">${data.reply}</div></div>`;
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+        // SIDEBAR LOGIC: Only save new chat if this is the FIRST message
+        if (currentChatId === null) {
+            currentChatId = Date.now(); // Create a unique ID for this session
+            history.unshift({ 
+                id: currentChatId, 
+                title: msg.substring(0, 25) + "...", 
+                content: box.innerHTML 
+            });
+        } else {
+            // Update the existing chat content in history
+            const index = history.findIndex(item => item.id === currentChatId);
+            if (index !== -1) history[index].content = box.innerHTML;
+        }
+        
+        localStorage.setItem('horror_history', JSON.stringify(history));
+        updateHistoryUI();
+
+    } catch (e) {
+        document.getElementById(typingId).innerText = "The connection was severed.";
+    }
+    box.scrollTop = box.scrollHeight;
+}
+
+function createNewChat() {
+    document.getElementById('chat-box').innerHTML = "";
+    currentChatId = null; // Reset ID so the next message starts a new chat
+}
+
+function loadChat(id) {
+    const chat = history.find(item => item.id === id);
+    if (chat) {
+        document.getElementById('chat-box').innerHTML = chat.content;
+        currentChatId = chat.id; // Set active ID to this old chat
+    }
+}
+
+function updateHistoryUI() {
+    const container = document.getElementById('chat-history');
+    container.innerHTML = history.map(item => `
+        <div class="sidebar-item p-3 rounded-lg text-xs truncate text-gray-400 ${item.id === currentChatId ? 'bg-[#1a1a24] border-l-2 border-[#a87ffb]' : ''}" 
+             onclick="loadChat(${item.id})">
+            ${item.title}
+        </div>
+    `).join('');
+}
