@@ -5,29 +5,68 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Horror.ai | The Voice</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #0f0f12; color: #e2e2e6; font-family: sans-serif; }
+        body { background-color: #0f0f12; color: #e2e2e6; font-family: 'Montserrat', sans-serif; overflow: hidden; }
         .hidden { display: none !important; }
+        #chat-box::-webkit-scrollbar { width: 4px; }
+        #chat-box::-webkit-scrollbar-thumb { background: #2d2d35; border-radius: 10px; }
+        .sidebar-item:hover { background: #1a1a24; cursor: pointer; }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center">
-    <div id="auth-container" class="bg-[#16161a] border border-[#2d2d35] p-8 rounded-3xl w-full max-w-sm">
-        <h1 class="text-3xl font-bold text-[#a87ffb] mb-6 text-center">Horror.ai</h1>
-        <input type="text" id="username" placeholder="Username" class="w-full bg-[#0f0f12] border border-[#2d2d35] p-3 rounded-xl mb-4 outline-none">
-        <input type="password" id="password" placeholder="Password" class="w-full bg-[#0f0f12] border border-[#2d2d35] p-3 rounded-xl mb-6 outline-none">
-        <button onclick="handleAuth('login')" class="w-full bg-white text-black font-bold py-3 rounded-xl mb-2">Login</button>
-        <button onclick="handleAuth('signup')" class="w-full text-[#a87ffb] text-sm">Create Account</button>
-    </div>
 
-    <div id="main-interface" class="hidden fixed inset-0 flex flex-col p-6">
-        <div id="chat-box" class="flex-1 overflow-y-auto mb-4 space-y-4 p-4"></div>
-        <div class="flex gap-2">
-            <input type="text" id="user-input" class="flex-1 bg-[#16161a] border border-[#2d2d35] p-4 rounded-xl outline-none">
-            <button onclick="sendMessage()" class="bg-[#a87ffb] px-6 rounded-xl text-black font-bold">Send</button>
+    <div id="auth-container" class="bg-[#16161a] border border-[#2d2d35] p-8 rounded-3xl w-full max-w-sm shadow-2xl z-50">
+        <h1 class="text-3xl font-bold text-[#a87ffb] mb-6 text-center italic">Horror.ai</h1>
+        <div class="space-y-4">
+            <input type="text" id="username" placeholder="Username" class="w-full bg-[#0f0f12] border border-[#2d2d35] p-3 rounded-xl outline-none focus:border-[#a87ffb] text-white">
+            <input type="password" id="password" placeholder="Password" class="w-full bg-[#0f0f12] border border-[#2d2d35] p-3 rounded-xl outline-none focus:border-[#a87ffb] text-white">
+            <button onclick="handleAuth('login')" class="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200 transition-all">Login</button>
+            <button onclick="handleAuth('signup')" class="w-full text-[#a87ffb] text-xs font-bold text-center block">Create New Account</button>
         </div>
     </div>
 
+    <div id="main-interface" class="hidden fixed inset-0 flex w-full h-screen">
+        
+        <aside class="w-64 flex flex-col border-r border-[#2d2d35] bg-[#0c0c0e]">
+            <div class="p-4">
+                <button onclick="createNewChat()" class="w-full bg-[#16161a] border border-[#2d2d35] text-white py-2 rounded-lg hover:bg-[#2d2d35] transition-all text-sm font-bold">
+                    + New Chat
+                </button>
+            </div>
+            <div class="px-4 py-2 text-[10px] text-gray-500 uppercase tracking-widest font-bold">History</div>
+            <div id="chat-history" class="flex-1 overflow-y-auto px-2 space-y-1">
+                </div>
+            <div class="p-4 border-t border-[#2d2d35]">
+                <button onclick="location.reload()" class="text-xs text-red-500 hover:underline">Logout</button>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col">
+            <header class="p-4 border-b border-[#2d2d35] text-center font-bold text-[#a87ffb]">HORROR.AI ARENA</header>
+            <div id="chat-box" class="flex-1 overflow-y-auto p-6 space-y-4"></div>
+            <div class="p-6">
+                <div class="flex bg-[#16161a] border border-[#2d2d35] rounded-2xl px-4 py-2 gap-4">
+                    <input type="text" id="user-input" placeholder="Ask Gemini or Horror..." class="flex-1 bg-transparent py-2 outline-none text-sm">
+                    <button onclick="sendMessage()" class="bg-[#a87ffb] text-black px-4 py-1 rounded-xl font-bold text-sm">Send</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
     <script>
+        let currentChat = [];
+        let history = JSON.parse(localStorage.getItem('horror_history') || '[]');
+
+        function updateHistoryUI() {
+            const container = document.getElementById('chat-history');
+            container.innerHTML = history.map((item, idx) => `
+                <div class="sidebar-item p-3 rounded-lg text-xs truncate text-gray-400" onclick="loadChat(${idx})">
+                    ${item.title}
+                </div>
+            `).join('');
+        }
+
         async function handleAuth(type) {
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
@@ -36,26 +75,55 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({username: u, password: p})
             });
-            if (res.ok) {
+            if(res.ok) {
                 document.getElementById('auth-container').classList.add('hidden');
                 document.getElementById('main-interface').classList.remove('hidden');
+                updateHistoryUI();
             } else { alert("Access Denied"); }
         }
 
         async function sendMessage() {
             const input = document.getElementById('user-input');
             const box = document.getElementById('chat-box');
-            const msg = input.value;
+            const msg = input.value.trim();
             if(!msg) return;
-            box.innerHTML += `<div class="text-right"><b>You:</b> ${msg}</div>`;
+
+            box.innerHTML += `<div class="flex justify-end"><div class="bg-[#a87ffb] text-black p-3 rounded-xl text-sm max-w-xs">${msg}</div></div>`;
             input.value = "";
-            const res = await fetch('/api/chat', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({message: msg})
-            });
-            const data = await res.json();
-            box.innerHTML += `<div class="text-left text-[#a87ffb]"><b>Horror:</b> ${data.reply}</div>`;
+            
+            const typingId = "typing-" + Date.now();
+            box.innerHTML += `<div id="${typingId}" class="text-gray-500 text-xs italic">Horror is thinking...</div>`;
+            box.scrollTop = box.scrollHeight;
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await res.json();
+                document.getElementById(typingId).remove();
+                box.innerHTML += `<div class="flex justify-start"><div class="bg-[#1a1a24] border border-[#2d2d35] p-3 rounded-xl text-sm max-w-xs">${data.reply}</div></div>`;
+                
+                // Save to history
+                if(currentChat.length === 0) {
+                    history.push({ title: msg.substring(0, 20), content: box.innerHTML });
+                    localStorage.setItem('horror_history', JSON.stringify(history));
+                    updateHistoryUI();
+                }
+            } catch (e) {
+                document.getElementById(typingId).innerText = "Provider Error: Connection severed.";
+            }
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function createNewChat() {
+            document.getElementById('chat-box').innerHTML = "";
+            currentChat = [];
+        }
+
+        function loadChat(idx) {
+            document.getElementById('chat-box').innerHTML = history[idx].content;
         }
     </script>
 </body>
