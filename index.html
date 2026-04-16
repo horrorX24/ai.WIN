@@ -3,83 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Horror.ai | The Voice</title>
+    <title>Horror.ai | The Voice from the Void</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #0f0f12; color: #e2e2e6; font-family: 'Montserrat', sans-serif; overflow: hidden; }
+        .gemini-font { font-family: 'Montserrat', sans-serif; }
+        body { background-color: #0f0f12; color: #e2e2e6; overflow: hidden; }
         .hidden { display: none !important; }
         #chat-box::-webkit-scrollbar { width: 4px; }
         #chat-box::-webkit-scrollbar-thumb { background: #2d2d35; border-radius: 10px; }
-        .sidebar-item:hover { background: #1a1a24; cursor: pointer; }
+        .sidebar-item { transition: all 0.2s; border-left: 3px solid transparent; }
+        .sidebar-item:hover { background: #1a1a24; cursor: pointer; color: white; }
+        .active-chat { background: #1a1a24; border-left: 3px solid #a87ffb; color: white; }
+        .input-container { background: #16161a; border-radius: 20px; border: 1px solid #2d2d35; }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center">
 
     <div id="auth-container" class="bg-[#16161a] border border-[#2d2d35] p-8 rounded-3xl w-full max-w-sm shadow-2xl z-50">
-        <h1 class="text-3xl font-bold text-[#a87ffb] mb-6 text-center italic">Horror.ai</h1>
+        <h1 class="gemini-font text-4xl font-bold text-[#a87ffb] mb-2 text-center italic">Horror.ai</h1>
+        <p class="text-gray-500 text-[10px] text-center mb-8 uppercase tracking-widest">Identify Yourself</p>
         <div class="space-y-4">
             <input type="text" id="username" placeholder="Username" class="w-full bg-[#0f0f12] border border-[#2d2d35] p-3 rounded-xl outline-none focus:border-[#a87ffb] text-white">
             <input type="password" id="password" placeholder="Password" class="w-full bg-[#0f0f12] border border-[#2d2d35] p-3 rounded-xl outline-none focus:border-[#a87ffb] text-white">
             <button onclick="handleAuth('login')" class="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200 transition-all">Login</button>
-            <button onclick="handleAuth('signup')" class="w-full text-[#a87ffb] text-xs font-bold text-center block">Create New Account</button>
+            <button onclick="handleAuth('signup')" class="w-full bg-transparent border border-[#a87ffb] text-[#a87ffb] font-bold py-3 rounded-xl hover:bg-[#a87ffb]/10">Sign Up</button>
         </div>
     </div>
 
-    <div id="main-interface" class="hidden fixed inset-0 flex w-full h-screen">
+    <div id="main-interface" class="hidden fixed inset-0 flex w-full h-screen overflow-hidden">
         
-        <aside class="w-64 flex flex-col border-r border-[#2d2d35] bg-[#0c0c0e]">
-            <div class="p-4">
-                <button onclick="createNewChat()" class="w-full bg-[#16161a] border border-[#2d2d35] text-white py-2 rounded-lg hover:bg-[#2d2d35] transition-all text-sm font-bold">
+        <aside class="w-72 flex flex-col border-r border-[#2d2d35] bg-[#0c0c0e]">
+            <div class="p-6">
+                <button onclick="createNewChat()" class="w-full flex items-center justify-center gap-2 bg-[#a87ffb] hover:bg-[#9060eb] text-black font-bold py-3 px-4 rounded-xl transition-all text-sm">
                     + New Chat
                 </button>
             </div>
-            <div class="px-4 py-2 text-[10px] text-gray-500 uppercase tracking-widest font-bold">History</div>
+            <div class="px-6 py-2 text-xs font-bold text-gray-500 uppercase tracking-widest">Recent Shadows</div>
             <div id="chat-history" class="flex-1 overflow-y-auto px-2 space-y-1">
                 </div>
             <div class="p-4 border-t border-[#2d2d35]">
-                <button onclick="location.reload()" class="text-xs text-red-500 hover:underline">Logout</button>
+                <button onclick="location.reload()" class="text-gray-500 hover:text-red-500 text-xs transition-colors">Sever Connection (Logout)</button>
             </div>
         </aside>
 
-        <main class="flex-1 flex flex-col">
-            <header class="p-4 border-b border-[#2d2d35] text-center font-bold text-[#a87ffb]">HORROR.AI ARENA</header>
-            <div id="chat-box" class="flex-1 overflow-y-auto p-6 space-y-4"></div>
-            <div class="p-6">
-                <div class="flex bg-[#16161a] border border-[#2d2d35] rounded-2xl px-4 py-2 gap-4">
-                    <input type="text" id="user-input" placeholder="Ask Gemini or Horror..." class="flex-1 bg-transparent py-2 outline-none text-sm">
-                    <button onclick="sendMessage()" class="bg-[#a87ffb] text-black px-4 py-1 rounded-xl font-bold text-sm">Send</button>
+        <main class="flex-1 flex flex-col bg-[#0f0f12]">
+            <header class="p-4 flex justify-between items-center border-b border-[#2d2d35]">
+                <div class="w-10"></div>
+                <h1 class="gemini-font text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#a87ffb] to-[#7f5fff]">Horror.ai</h1>
+                <div class="text-[10px] text-gray-600 font-mono" id="session-status">STABLE</div>
+            </header>
+
+            <div class="flex-1 flex flex-col relative overflow-hidden max-w-4xl mx-auto w-full">
+                <div id="chat-box" class="flex-1 overflow-y-auto p-8 space-y-6">
+                    <div class="text-center text-gray-700 text-[10px] uppercase tracking-[0.3em] mt-20">The abyss gazes back</div>
+                </div>
+                
+                <div class="p-6">
+                    <div class="input-container flex items-center px-6 py-2 gap-4">
+                        <input type="text" id="user-input" placeholder="Whisper into the void..." class="flex-1 py-3 bg-transparent text-[#e2e2e6] outline-none" onkeypress="if(event.key==='Enter') sendMessage()">
+                        <button onclick="sendMessage()" class="bg-[#a87ffb] hover:bg-[#9060eb] text-black font-bold py-2 px-6 rounded-xl transition-all">Send</button>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
 
     <script>
-        let currentChat = [];
+        let currentChatId = null;
         let history = JSON.parse(localStorage.getItem('horror_history') || '[]');
 
         function updateHistoryUI() {
             const container = document.getElementById('chat-history');
-            container.innerHTML = history.map((item, idx) => `
-                <div class="sidebar-item p-3 rounded-lg text-xs truncate text-gray-400" onclick="loadChat(${idx})">
+            container.innerHTML = history.map(item => `
+                <div class="sidebar-item p-3 rounded-lg text-xs truncate text-gray-400 ${item.id === currentChatId ? 'active-chat' : ''}" 
+                     onclick="loadChat(${item.id})">
                     ${item.title}
                 </div>
             `).join('');
         }
 
         async function handleAuth(type) {
-            const u = document.getElementById('username').value;
-            const p = document.getElementById('password').value;
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            if(!user || !pass) return;
+
             const res = await fetch(`/api/auth/${type}`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username: u, password: p})
+                body: JSON.stringify({ username: user, password: pass })
             });
-            if(res.ok) {
+
+            if (res.ok) {
                 document.getElementById('auth-container').classList.add('hidden');
                 document.getElementById('main-interface').classList.remove('hidden');
                 updateHistoryUI();
-            } else { alert("Access Denied"); }
+            } else {
+                alert("Credentials rejected by the void.");
+            }
         }
 
         async function sendMessage() {
@@ -88,11 +109,14 @@
             const msg = input.value.trim();
             if(!msg) return;
 
-            box.innerHTML += `<div class="flex justify-end"><div class="bg-[#a87ffb] text-black p-3 rounded-xl text-sm max-w-xs">${msg}</div></div>`;
+            // Clear placeholder if first message
+            if (box.innerText.includes("The abyss gazes back")) box.innerHTML = "";
+
+            box.innerHTML += `<div class="flex justify-end animate-fade-in"><div class="bg-[#a87ffb] text-black px-4 py-3 rounded-2xl text-sm font-bold max-w-[80%] shadow-lg">${msg}</div></div>`;
             input.value = "";
             
             const typingId = "typing-" + Date.now();
-            box.innerHTML += `<div id="${typingId}" class="text-gray-500 text-xs italic">Horror is thinking...</div>`;
+            box.innerHTML += `<div id="${typingId}" class="flex justify-start"><div class="bg-[#16161a] border border-[#2d2d35] p-4 rounded-2xl text-sm italic text-gray-500">Processing...</div></div>`;
             box.scrollTop = box.scrollHeight;
 
             try {
@@ -103,27 +127,44 @@
                 });
                 const data = await res.json();
                 document.getElementById(typingId).remove();
-                box.innerHTML += `<div class="flex justify-start"><div class="bg-[#1a1a24] border border-[#2d2d35] p-3 rounded-xl text-sm max-w-xs">${data.reply}</div></div>`;
                 
-                // Save to history
-                if(currentChat.length === 0) {
-                    history.push({ title: msg.substring(0, 20), content: box.innerHTML });
-                    localStorage.setItem('horror_history', JSON.stringify(history));
-                    updateHistoryUI();
+                box.innerHTML += `<div class="flex justify-start animate-fade-in"><div class="bg-[#1a1a24] border border-[#2d2d35] p-4 rounded-2xl text-sm text-white max-w-[80%] shadow-sm">${data.reply}</div></div>`;
+
+                // SMART HISTORY LOGIC
+                if (currentChatId === null) {
+                    currentChatId = Date.now();
+                    history.unshift({ 
+                        id: currentChatId, 
+                        title: msg.length > 20 ? msg.substring(0, 20) + "..." : msg, 
+                        content: box.innerHTML 
+                    });
+                } else {
+                    const idx = history.findIndex(item => item.id === currentChatId);
+                    if (idx !== -1) history[idx].content = box.innerHTML;
                 }
-            } catch (e) {
-                document.getElementById(typingId).innerText = "Provider Error: Connection severed.";
+                
+                localStorage.setItem('horror_history', JSON.stringify(history));
+                updateHistoryUI();
+
+            } catch (err) {
+                document.getElementById(typingId).innerHTML = `<div class="text-red-500 text-xs">The void is currently full. Try again.</div>`;
             }
             box.scrollTop = box.scrollHeight;
         }
 
         function createNewChat() {
-            document.getElementById('chat-box').innerHTML = "";
-            currentChat = [];
+            document.getElementById('chat-box').innerHTML = '<div class="text-center text-gray-700 text-[10px] uppercase tracking-[0.3em] mt-20">The abyss gazes back</div>';
+            currentChatId = null;
+            updateHistoryUI();
         }
 
-        function loadChat(idx) {
-            document.getElementById('chat-box').innerHTML = history[idx].content;
+        function loadChat(id) {
+            const chat = history.find(item => item.id === id);
+            if (chat) {
+                document.getElementById('chat-box').innerHTML = chat.content;
+                currentChatId = chat.id;
+                updateHistoryUI();
+            }
         }
     </script>
 </body>
