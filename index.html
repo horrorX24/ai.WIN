@@ -13,6 +13,10 @@
         .tab-active { background: #212129; color: #a87ffb; border-left: 4px solid #a87ffb; }
         .hidden { display: none !important; }
         body { background-color: #0f0f12; color: #e2e2e6; }
+        
+        /* Toggle Switch Styling */
+        .toggle-btn { transition: all 0.3s ease; }
+        .toggle-active { background-color: #a87ffb; color: black; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -34,22 +38,41 @@
             </div>
 
             <div class="w-2/3 p-8">
+                
                 <div id="content-account" class="tab-content space-y-6">
                     <h3 class="text-lg font-bold text-white mb-2">Access the Void</h3>
+                    
                     <div id="otp-input-phase">
-                        <div class="flex gap-2 mb-4">
-                            <select id="otp-country" class="bg-[#212129] border border-[#2d2d35] rounded-xl px-2 text-white outline-none">
-                                <option value="+91">🇮🇳 +91</option>
-                                <option value="+1">🇺🇸 +1</option>
-                            </select>
-                            <input type="text" id="otp-contact" placeholder="Email or Phone" class="flex-1 bg-[#212129] border border-[#2d2d35] rounded-xl p-3 text-sm focus:outline-none">
+                        <div class="flex bg-[#0f0f12] p-1 rounded-xl mb-6 border border-[#2d2d35]">
+                            <button id="btn-email" onclick="setMethod('email')" class="toggle-btn flex-1 py-2 rounded-lg text-sm font-bold toggle-active">Email</button>
+                            <button id="btn-phone" onclick="setMethod('phone')" class="toggle-btn flex-1 py-2 rounded-lg text-sm font-bold text-gray-400">Phone</button>
                         </div>
-                        <button onclick="requestOTP()" id="otp-req-btn" class="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200">Send Access Code</button>
+
+                        <div class="space-y-4">
+                            <div id="phone-fields" class="hidden flex gap-2">
+                                <select id="otp-country" class="bg-[#212129] border border-[#2d2d35] rounded-xl px-2 text-white outline-none">
+                                    <option value="+91">🇮🇳 +91</option>
+                                    <option value="+1">🇺🇸 +1</option>
+                                </select>
+                                <input type="text" id="otp-phone" placeholder="Phone Number" class="flex-1 bg-[#212129] border border-[#2d2d35] rounded-xl p-3 text-sm">
+                            </div>
+
+                            <div id="email-fields">
+                                <input type="email" id="otp-email" placeholder="void@example.com" class="w-full bg-[#212129] border border-[#2d2d35] rounded-xl p-3 text-sm focus:outline-none">
+                            </div>
+                        </div>
+
+                        <button onclick="requestOTP()" id="otp-req-btn" class="w-full mt-6 bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200 transition-all">
+                            Send Access Code
+                        </button>
                     </div>
 
-                    <div id="otp-verify-phase" class="hidden">
-                        <input type="text" id="otp-code" maxlength="6" placeholder="000000" class="w-full bg-[#212129] border border-[#2d2d35] rounded-xl p-4 text-center text-3xl tracking-[0.5em] mb-4">
-                        <button onclick="verifyOTP()" class="w-full bg-[#a87ffb] text-black font-bold py-3 rounded-xl">Verify Identity</button>
+                    <div id="otp-verify-phase" class="hidden text-center">
+                        <p class="text-sm text-gray-400 mb-4">Code sent to your <span id="display-target">email</span></p>
+                        <input type="text" id="otp-code" maxlength="6" placeholder="000000" class="w-full bg-[#212129] border border-[#2d2d35] rounded-xl p-4 text-center text-3xl tracking-[0.5em] mb-4 focus:border-[#a87ffb] outline-none">
+                        <button id="verify-btn" onclick="verifyOTP()" class="w-full bg-[#a87ffb] text-black font-bold py-3 rounded-xl hover:bg-[#9060eb]">
+                            Verify Identity
+                        </button>
                     </div>
                 </div>
 
@@ -88,7 +111,9 @@
     </div>
 
     <script>
-        // CORE JAVASCRIPT
+        let currentMethod = 'email';
+        let finalTarget = '';
+
         function openSettings() { document.getElementById('settings-modal').classList.remove('hidden'); document.getElementById('settings-modal').classList.add('flex'); }
         function closeSettings() { document.getElementById('settings-modal').classList.add('hidden'); document.getElementById('settings-modal').classList.remove('flex'); }
         
@@ -99,21 +124,78 @@
             document.getElementById('tab-' + tab).classList.add('tab-active');
         }
 
+        function setMethod(method) {
+            currentMethod = method;
+            const isEmail = method === 'email';
+            document.getElementById('email-fields').classList.toggle('hidden', !isEmail);
+            document.getElementById('phone-fields').classList.toggle('hidden', isEmail);
+            document.getElementById('btn-email').classList.toggle('toggle-active', isEmail);
+            document.getElementById('btn-phone').classList.toggle('toggle-active', !isEmail);
+            document.getElementById('btn-email').classList.toggle('text-gray-400', !isEmail);
+            document.getElementById('btn-phone').classList.toggle('text-gray-400', isEmail);
+        }
+
         async function requestOTP() {
-            const contact = document.getElementById('otp-contact').value;
+            const btn = document.getElementById('otp-req-btn');
+            const email = document.getElementById('otp-email').value;
+            const phone = document.getElementById('otp-phone').value;
             const country = document.getElementById('otp-country').value;
+            
+            finalTarget = currentMethod === 'email' ? email : country + phone;
+            if(!finalTarget || finalTarget.length < 5) return alert("Please enter valid contact details.");
+
+            btn.innerText = "Channelling...";
+            btn.disabled = true;
+
             const ua = navigator.userAgent.toLowerCase();
             const device = ua.includes("android") ? "android" : (ua.includes("iphone") ? "ios" : "desktop");
 
-            const res = await fetch('/api/otp/request', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({contact, countryCode: contact.includes('@') ? '' : country, device})
-            });
-            if (res.ok) {
-                alert("Code sent. Check your " + (contact.includes('@') ? "email" : (device === "android" ? "WhatsApp" : "Messages")));
-                document.getElementById('otp-input-phase').classList.add('hidden');
-                document.getElementById('otp-verify-phase').classList.remove('hidden');
+            try {
+                const res = await fetch('/api/otp/request', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        contact: finalTarget, 
+                        method: currentMethod,
+                        device: device
+                    })
+                });
+                if (res.ok) {
+                    document.getElementById('display-target').innerText = currentMethod;
+                    document.getElementById('otp-input-phase').classList.add('hidden');
+                    document.getElementById('otp-verify-phase').classList.remove('hidden');
+                }
+            } catch(e) { alert("The void is silent. Try again."); }
+            finally { btn.innerText = "Send Access Code"; btn.disabled = false; }
+        }
+
+        async function verifyOTP() {
+            const code = document.getElementById('otp-code').value;
+            const btn = document.getElementById('verify-btn');
+            if(code.length < 6) return;
+
+            btn.innerText = "Verifying...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/otp/verify', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ target: finalTarget, code: code })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    btn.innerText = "Access Granted";
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    alert("Incorrect code.");
+                    btn.innerText = "Verify Identity";
+                    btn.disabled = false;
+                }
+            } catch(e) { 
+                btn.innerText = "Verify Identity"; 
+                btn.disabled = false; 
             }
         }
 
@@ -136,7 +218,6 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        // Handle Enter key
         document.getElementById('user-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
     </script>
 </body>
