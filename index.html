@@ -3,148 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Horror.ai | The Voice from the Void</title>
+    <title>Horror.ai</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        .gemini-font { font-family: 'Montserrat', sans-serif; }
-        #chat-box::-webkit-scrollbar { width: 4px; }
-        #chat-box::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-        .tab-active { background: #212129; color: #a87ffb; border-left: 4px solid #a87ffb; }
+        body { background-color: #0f0f12; color: #e2e2e6; font-family: sans-serif; }
         .hidden { display: none !important; }
-        body { background-color: #0f0f12; color: #e2e2e6; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex items-center justify-center p-4">
 
-    <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-50 p-4">
-        <div class="bg-[#16161a] border border-[#2d2d35] rounded-2xl max-w-3xl w-full flex overflow-hidden shadow-2xl min-h-[450px]">
-            
-            <div class="w-1/3 bg-[#0f0f12] border-r border-[#2d2d35] flex flex-col py-4">
-                <h2 class="gemini-font text-xl font-bold px-6 mb-6">Settings</h2>
-                <button onclick="switchTab('account')" id="tab-account" class="tab-btn tab-active px-6 py-4 text-sm font-bold text-left">Account</button>
-                <button onclick="switchTab('persona')" id="tab-persona" class="tab-btn px-6 py-4 text-sm text-gray-400 text-left">Persona</button>
-                <div class="mt-auto px-4">
-                    <button onclick="closeSettings()" class="w-full py-2 text-gray-500 hover:text-white text-sm">Close</button>
-                </div>
-            </div>
+    <div class="bg-[#16161a] border border-[#2d2d35] p-8 rounded-2xl w-full max-w-md shadow-2xl">
+        <h1 class="text-2xl font-bold text-[#a87ffb] mb-6 text-center">Horror.ai</h1>
 
-            <div class="w-2/3 p-8">
-                <div id="content-account" class="tab-content space-y-6">
-                    <div id="otp-input-phase">
-                        <h3 class="text-lg font-bold mb-4">Identity Verification</h3>
-                        <button onclick="promptEmail()" class="w-full flex items-center justify-center gap-3 bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200 transition-all">
-                            <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5">
-                            Send Code to Gmail
-                        </button>
-                    </div>
+        <div id="auth-ui">
+            <p class="text-sm text-gray-400 mb-4 text-center">Enter your Gmail. We will send an entry link directly to your inbox.</p>
+            <input type="email" id="email" placeholder="yourname@gmail.com" 
+                   class="w-full bg-[#0f0f12] border border-[#2d2d35] p-3 rounded-xl outline-none focus:border-[#a87ffb] mb-4">
+            <button id="send-btn" class="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200 transition-all">
+                Send Link to Gmail
+            </button>
+        </div>
 
-                    <div id="otp-verify-phase" class="hidden text-center">
-                        <p class="text-sm text-gray-400 mb-4">Verifying <span id="display-target" class="text-white"></span></p>
-                        <input type="text" id="otp-code" maxlength="6" placeholder="000000" class="w-full bg-[#212129] border border-[#2d2d35] rounded-xl p-4 text-center text-3xl tracking-[0.5em] focus:outline-none mb-4">
-                        <button id="verify-btn" onclick="verifyOTP()" class="w-full bg-[#a87ffb] text-black font-bold py-3 rounded-xl">Verify Identity</button>
-                    </div>
-                </div>
-
-                <div id="content-persona" class="tab-content hidden">
-                    <h3 class="text-lg font-bold mb-4">AI Persona</h3>
-                    <textarea id="system-prompt" rows="5" class="w-full bg-[#212129] border border-[#2d2d35] rounded-xl p-4 text-sm text-white" placeholder="How should the entity speak?"></textarea>
-                    <button onclick="savePersona()" class="w-full mt-4 bg-[#a87ffb] text-black font-bold py-2 rounded-xl">Save</button>
-                </div>
-            </div>
+        <div id="loading-ui" class="hidden text-center py-10">
+            <p class="animate-pulse text-[#a87ffb] font-bold">VERIFYING IDENTITY...</p>
+            <p class="text-xs text-gray-500 mt-2">Connecting to the void via Firebase</p>
         </div>
     </div>
 
-    <div class="flex w-full h-screen overflow-hidden">
-        <aside class="w-64 border-r border-[#2d2d35] flex flex-col p-4">
-            <button onclick="location.reload()" class="w-full bg-[#212129] py-3 rounded-full border border-[#2d2d35]">New Void</button>
-            <div class="flex-1"></div>
-            <button onclick="openSettings()" class="text-gray-400 hover:text-white py-4 text-left px-4">Settings</button>
-        </aside>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        <main class="flex-1 flex flex-col">
-            <header class="p-4 border-b border-[#2d2d35] text-center font-bold text-[#a87ffb] text-xl">Horror.ai</header>
-            <div id="chat-box" class="flex-1 overflow-y-auto p-6 space-y-4"></div>
-            <div class="p-6">
-                <div class="flex gap-4 bg-[#16161a] border border-[#2d2d35] p-2 rounded-2xl">
-                    <input type="text" id="user-input" placeholder="Whisper to the void..." class="flex-1 bg-transparent px-4 text-white outline-none">
-                    <button onclick="sendMessage()" class="bg-[#a87ffb] text-black px-6 py-2 rounded-xl font-bold">Send</button>
-                </div>
-            </div>
-        </main>
-    </div>
+        // TODO: REPLACE THESE WITH YOUR KEYS FROM FIREBASE SETTINGS
+        const firebaseConfig = {
+            apiKey: "AIzaSy...", 
+            authDomain: "ai-win-ww.firebaseapp.com",
+            projectId: "ai-win-ww",
+            storageBucket: "ai-win-ww.appspot.com",
+            messagingSenderId: "...",
+            appId: "..."
+        };
 
-    <script>
-        let currentTarget = "";
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
 
-        function openSettings() { document.getElementById('settings-modal').classList.replace('hidden', 'flex'); }
-        function closeSettings() { document.getElementById('settings-modal').classList.replace('flex', 'hidden'); }
-
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-            document.getElementById('content-' + tab).classList.remove('hidden');
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
-            document.getElementById('tab-' + tab).classList.add('tab-active');
-        }
-
-        async function promptEmail() {
-            const email = prompt("Enter Gmail Address:");
-            if (!email) return;
-            currentTarget = email;
-            const res = await fetch('/api/otp/request', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ contact: email })
-            });
-            if (res.ok) {
-                document.getElementById('display-target').innerText = email;
-                document.getElementById('otp-input-phase').classList.add('hidden');
-                document.getElementById('otp-verify-phase').classList.remove('hidden');
-            }
-        }
-
-        async function verifyOTP() {
-            const btn = document.getElementById('verify-btn');
-            const code = document.getElementById('otp-code').value;
-            btn.innerText = "VERIFYING...";
-            btn.disabled = true;
-
-            const res = await fetch('/api/otp/verify', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ target: currentTarget, code: code })
-            });
+        // --- 1. SEND LINK ---
+        document.getElementById('send-btn').onclick = async () => {
+            const email = document.getElementById('email').value;
+            const btn = document.getElementById('send-btn');
             
-            if (res.ok) {
-                btn.innerText = "SUCCESS";
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                alert("Incorrect code.");
-                btn.innerText = "Verify Identity";
+            const actionCodeSettings = {
+                url: window.location.href, // This brings them back to this same page
+                handleCodeInApp: true,
+            };
+
+            try {
+                btn.innerText = "SENDING...";
+                btn.disabled = true;
+                await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+                window.localStorage.setItem('emailForSignIn', email);
+                alert('Link sent! Open Gmail on this device and click the link.');
+            } catch (error) {
+                alert('Error: ' + error.message);
+                btn.innerText = "Send Link to Gmail";
                 btn.disabled = false;
             }
+        };
+
+        // --- 2. CATCH THE RETURNING USER ---
+        if (isSignInWithEmailLink(auth, window.location.href)) {
+            document.getElementById('auth-ui').classList.add('hidden');
+            document.getElementById('loading-ui').classList.remove('hidden');
+
+            let email = window.localStorage.getItem('emailForSignIn');
+            if (!email) {
+                email = window.prompt('Please confirm your email:');
+            }
+
+            signInWithEmailLink(auth, email, window.location.href)
+                .then(() => {
+                    window.localStorage.removeItem('emailForSignIn');
+                    alert('Access Granted. Welcome.');
+                    // You can add logic here to show the chat interface
+                })
+                .catch((error) => alert('Verification failed: ' + error.message));
         }
-
-        async function sendMessage() {
-            const input = document.getElementById('user-input');
-            const chat = document.getElementById('chat-box');
-            if(!input.value) return;
-
-            chat.innerHTML += `<div class="flex justify-end"><div class="bg-[#a87ffb] text-black px-4 py-2 rounded-xl max-w-sm">${input.value}</div></div>`;
-            const text = input.value;
-            input.value = "";
-
-            const res = await fetch('/api/chat', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ message: text })
-            });
-            const data = await res.json();
-            chat.innerHTML += `<div class="flex justify-start"><div class="bg-[#16161a] border border-[#2d2d35] px-4 py-2 rounded-xl max-w-sm">${data.reply}</div></div>`;
-            chat.scrollTop = chat.scrollHeight;
-        }
-
-        document.getElementById('user-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
     </script>
 </body>
 </html>
