@@ -1,74 +1,102 @@
-let currentChatId = null; // Track the active chat session
-let history = JSON.parse(localStorage.getItem('horror_history') || '[]');
+import os
+import sqlite3
+import requests
+from flask import Flask, request, jsonify, send_from_directory
 
-async function sendMessage() {
-    const input = document.getElementById('user-input');
-    const box = document.getElementById('chat-box');
-    const msg = input.value.trim();
-    if(!msg) return;
+app = Flask(__name__, static_folder='.')
 
-    // Show User Message
-    box.innerHTML += `<div class="flex justify-end"><div class="bg-[#a87ffb] text-black p-3 rounded-xl text-sm max-w-xs">${msg}</div></div>`;
-    input.value = "";
+# --- DATABASE PATH LOGIC ---
+# If Railway Volume is mounted at /app/data, use it. Otherwise, use a local file.
+# This prevents the app from crashing during the first deployment.
+if os.path.exists('/app/data'):
+    DB_PATH = '/app/data/users.db'
+else:
+    DB_PATH = 'users.db'
+
+def init_db():
+    try:
+        # Create folder if it's missing (only for volume paths)
+        if os.path.dirname(DB_PATH):
+            os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+        
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute('CREATE TABLE IF NOT EXISTS users (username TEXT UNIQUE, password TEXT)')
+        conn.commit()
+        conn.close()
+        print(f"[*] Database initialized successfully at: {DB_PATH}")
+    except Exception as e:
+        print(f"[!] Database initialization failed: {e}")
+
+init_db()
+
+# --- ROUTES ---
+
+@app.route('/')
+def index():
+    # Serves your index.html from the root folder
+    return send_from_directory('.', 'index.html')
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    data = request.json
+    user_msg = data.get('message', '')
     
-    const typingId = "typing-" + Date.now();
-    box.innerHTML += `<div id="${typingId}" class="text-gray-500 text-xs italic">Horror is thinking...</div>`;
-    box.scrollTop = box.scrollHeight;
+    # Try multiple free models in order of stability
+    # If Gemini fails, it moves to OpenAI, then Llama
+    models = ["gemini", "openai", "llama-3-70b", "mistral-7b"]
+    
+    for model in models:
+        try:
+            # 8-second timeout to catch "Bad Gateways" quickly
+            url = f"https://text.pollinations.ai/{user_msg}?model={model}&cache=true"
+            response = requests.get(url, timeout=8)
+            
+            if response.status_code == 200 and response.text.strip():
+                return jsonify({"reply": response.text})
+        except:
+            continue # Try the next model
+            
+    return jsonify({"reply": "The abyss is currently overwhelmed. Please try your incantation again."}), 503
 
-    try {
-        const res = await fetch('/api/chat', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ message: msg })
-        });
-        const data = await res.json();
-        document.getElementById(typingId).remove();
-        
-        // Show AI Message
-        box.innerHTML += `<div class="flex justify-start"><div class="bg-[#1a1a24] border border-[#2d2d35] p-3 rounded-xl text-sm max-w-xs">${data.reply}</div></div>`;
+@app.route('/api/auth/<action>', methods=['POST'])
+def handle_auth(action):
+    data = request.json
+    u = data.get('username', '').lower().strip()
+    p = data.get('password', '').strip()
+    
+    if not u or not p:
+        return jsonify({"error": "Credentials required"}), 400
 
-        // SIDEBAR LOGIC: Only save new chat if this is the FIRST message
-        if (currentChatId === null) {
-            currentChatId = Date.now(); // Create a unique ID for this session
-            history.unshift({ 
-                id: currentChatId, 
-                title: msg.substring(0, 25) + "...", 
-                content: box.innerHTML 
-            });
-        } else {
-            // Update the existing chat content in history
-            const index = history.findIndex(item => item.id === currentChatId);
-            if (index !== -1) history[index].content = box.innerHTML;
-        }
-        
-        localStorage.setItem('horror_history', JSON.stringify(history));
-        updateHistoryUI();
+    conn = sqlite3.connect(DB_PATH)
+    
+    if action == 'signup':
+        try:
+            conn.execute('INSERT INTO users VALUES (?, ?)', (u, p))
+            conn.commit()
+            return jsonify({"success": True})
+        except sqlite3.IntegrityError:
+            return jsonify({"error": "Identity already claimed."}), 400
+        finally:
+            conn.close()
+    else:
+        user = conn.execute('SELECT * FROM users WHERE username=? AND password=?', (u, p)).fetchone()
+        conn.close()
+        return jsonify({"success": True}) if user else (jsonify({"error": "Rejected."}), 401)
 
-    } catch (e) {
-        document.getElementById(typingId).innerText = "The connection was severed.";
-    }
-    box.scrollTop = box.scrollHeight;
-}
+# --- ADMIN SECRETS ---
+@app.route('/the-void-secrets')
+def admin_view():
+    # Access this via: your-url.com/the-void-secrets?key=my-secret-key-123
+    key = request.args.get('key')
+    if key != "my-secret-key-123":
+        return "The void remains closed to you.", 403
+    
+    conn = sqlite3.connect(DB_PATH)
+    users = conn.execute('SELECT * FROM users').fetchall()
+    conn.close()
+    return {"registered_souls": users}
 
-function createNewChat() {
-    document.getElementById('chat-box').innerHTML = "";
-    currentChatId = null; // Reset ID so the next message starts a new chat
-}
-
-function loadChat(id) {
-    const chat = history.find(item => item.id === id);
-    if (chat) {
-        document.getElementById('chat-box').innerHTML = chat.content;
-        currentChatId = chat.id; // Set active ID to this old chat
-    }
-}
-
-function updateHistoryUI() {
-    const container = document.getElementById('chat-history');
-    container.innerHTML = history.map(item => `
-        <div class="sidebar-item p-3 rounded-lg text-xs truncate text-gray-400 ${item.id === currentChatId ? 'bg-[#1a1a24] border-l-2 border-[#a87ffb]' : ''}" 
-             onclick="loadChat(${item.id})">
-            ${item.title}
-        </div>
-    `).join('');
-}
+if __name__ == '__main__':
+    # Railway provides the PORT environment variable
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
