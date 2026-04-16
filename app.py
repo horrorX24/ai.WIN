@@ -1,45 +1,64 @@
 import os
-import random
-import smtplib
-from email.message import EmailMessage
+import sqlite3
 from flask import Flask, request, jsonify, send_from_directory
 
 app = Flask(__name__, static_folder='.')
 
-otp_storage = {}
-EMAIL_SENDER = "horrorxxy@gmail.com" 
-EMAIL_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD") 
+# --- DATABASE SETUP ---
+def init_db():
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    # This creates the "text area" the machine reads
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_db()
 
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
 
-@app.route('/api/otp/request', methods=['POST'])
-def request_otp():
-    email = request.json.get('email')
-    otp_code = str(random.randint(100000, 999999))
-    otp_storage[email] = otp_code
-
-    try:
-        msg = EmailMessage()
-        msg.set_content(f"Your Horror.ai access code is: {otp_code}")
-        msg['Subject'] = 'Horror.ai Access Code'
-        msg['From'] = f"Horror.ai <{EMAIL_SENDER}>"
-        msg['To'] = email
-
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            smtp.send_message(msg)
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/otp/verify', methods=['POST'])
-def verify_otp():
+@app.route('/api/auth/signup', methods=['POST'])
+def signup():
     data = request.json
-    if otp_storage.get(data['email']) == data['code']:
-        return jsonify({"success": True})
-    return jsonify({"success": False}), 401
+    username = data.get('username', '').strip().lower()
+    password = data.get('password', '')
+
+    if len(password) < 3:
+        return jsonify({"error": "Password too short (min 3)"}), 400
+    
+    try:
+        conn = sqlite3.connect('users.db')
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True, "message": "Account secured in the void."})
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "That name is already taken."}), 400
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username', '').strip().lower()
+    password = data.get('password', '')
+
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password))
+    user = cursor.fetchone()
+    conn.close()
+
+    if user:
+        return jsonify({"success": True, "message": "Access granted."})
+    return jsonify({"error": "Wrong username or password."}), 401
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
