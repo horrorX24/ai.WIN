@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Horror.ai | The Voice from the Void</title>
+    <title>Horror.ai | LLM Sandbox</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -16,18 +16,22 @@
         .sidebar-item:hover { background: #1a1a24; cursor: pointer; color: white; }
         .active-chat { background: #1a1a24; border-left: 3px solid #a87ffb; color: white; }
         .input-container { background: #16161a; border-radius: 20px; border: 1px solid #2d2d35; }
+        
+        /* Animation for smooth appearance */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade { animation: fadeIn 0.3s ease forwards; }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center">
 
     <div id="auth-container" class="bg-[#16161a] border border-[#2d2d35] p-8 rounded-3xl w-full max-w-sm shadow-2xl z-50">
         <h1 class="gemini-font text-4xl font-bold text-[#a87ffb] mb-2 text-center italic">Horror.ai</h1>
-        <p class="text-gray-500 text-[10px] text-center mb-8 uppercase tracking-widest">Identify Yourself</p>
+        <p class="text-gray-500 text-[10px] text-center mb-8 uppercase tracking-widest">Sandbox Access</p>
         <div class="space-y-4">
             <input type="text" id="username" placeholder="Username" class="w-full bg-[#0f0f12] border border-[#2d2d35] p-3 rounded-xl outline-none focus:border-[#a87ffb] text-white">
             <input type="password" id="password" placeholder="Password" class="w-full bg-[#0f0f12] border border-[#2d2d35] p-3 rounded-xl outline-none focus:border-[#a87ffb] text-white">
             <button onclick="handleAuth('login')" class="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200 transition-all">Login</button>
-            <button onclick="handleAuth('signup')" class="w-full bg-transparent border border-[#a87ffb] text-[#a87ffb] font-bold py-3 rounded-xl hover:bg-[#a87ffb]/10">Sign Up</button>
+            <button onclick="handleAuth('signup')" class="w-full text-[#a87ffb] text-xs font-bold text-center block hover:underline">Create Account</button>
         </div>
     </div>
 
@@ -36,33 +40,41 @@
         <aside class="w-72 flex flex-col border-r border-[#2d2d35] bg-[#0c0c0e]">
             <div class="p-6">
                 <button onclick="createNewChat()" class="w-full flex items-center justify-center gap-2 bg-[#a87ffb] hover:bg-[#9060eb] text-black font-bold py-3 px-4 rounded-xl transition-all text-sm">
-                    + New Chat
+                    + New Sandbox
                 </button>
             </div>
-            <div class="px-6 py-2 text-xs font-bold text-gray-500 uppercase tracking-widest">Recent Shadows</div>
-            <div id="chat-history" class="flex-1 overflow-y-auto px-2 space-y-1">
-                </div>
+            <div class="px-6 py-2 text-xs font-bold text-gray-500 uppercase tracking-widest">Saved Sessions</div>
+            <div id="chat-history" class="flex-1 overflow-y-auto px-2 space-y-1"></div>
             <div class="p-4 border-t border-[#2d2d35]">
-                <button onclick="location.reload()" class="text-gray-500 hover:text-red-500 text-xs transition-colors">Sever Connection (Logout)</button>
+                <button onclick="location.reload()" class="text-gray-500 hover:text-red-500 text-xs transition-colors w-full text-left">Logout</button>
             </div>
         </aside>
 
         <main class="flex-1 flex flex-col bg-[#0f0f12]">
             <header class="p-4 flex justify-between items-center border-b border-[#2d2d35]">
                 <div class="w-10"></div>
-                <h1 class="gemini-font text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#a87ffb] to-[#7f5fff]">Horror.ai</h1>
-                <div class="text-[10px] text-gray-600 font-mono" id="session-status">STABLE</div>
+                <h1 class="gemini-font text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#a87ffb] to-[#7f5fff]">Horror.ai Sandbox</h1>
+                <div class="text-[10px] text-[#a87ffb] font-mono tracking-tighter" id="session-status">UNLIMITED FREE ACCESS</div>
             </header>
 
             <div class="flex-1 flex flex-col relative overflow-hidden max-w-4xl mx-auto w-full">
                 <div id="chat-box" class="flex-1 overflow-y-auto p-8 space-y-6">
-                    <div class="text-center text-gray-700 text-[10px] uppercase tracking-[0.3em] mt-20">The abyss gazes back</div>
+                    <div class="text-center text-gray-700 text-[10px] uppercase tracking-[0.3em] mt-20">Initialize the machine...</div>
                 </div>
                 
                 <div class="p-6">
+                    <div class="flex gap-2 mb-3">
+                        <select id="model-select" class="bg-[#16161a] text-[#a87ffb] text-[10px] px-3 py-1.5 rounded-full border border-[#2d2d35] outline-none font-bold uppercase tracking-widest cursor-pointer hover:border-[#a87ffb]">
+                            <option value="gemini">Gemini 1.5 Flash (Arena)</option>
+                            <option value="openai">GPT-4o Sandbox</option>
+                            <option value="llama">Llama 3 (Meta)</option>
+                            <option value="mistral">Mistral Large</option>
+                        </select>
+                    </div>
+
                     <div class="input-container flex items-center px-6 py-2 gap-4">
-                        <input type="text" id="user-input" placeholder="Whisper into the void..." class="flex-1 py-3 bg-transparent text-[#e2e2e6] outline-none" onkeypress="if(event.key==='Enter') sendMessage()">
-                        <button onclick="sendMessage()" class="bg-[#a87ffb] hover:bg-[#9060eb] text-black font-bold py-2 px-6 rounded-xl transition-all">Send</button>
+                        <input type="text" id="user-input" placeholder="Execute prompt..." class="flex-1 py-3 bg-transparent text-[#e2e2e6] outline-none" onkeypress="if(event.key==='Enter') sendMessage()">
+                        <button onclick="sendMessage()" class="bg-[#a87ffb] hover:bg-[#9060eb] text-black font-bold py-2 px-6 rounded-xl transition-all shadow-lg active:scale-95">Send</button>
                     </div>
                 </div>
             </div>
@@ -99,43 +111,45 @@
                 document.getElementById('main-interface').classList.remove('hidden');
                 updateHistoryUI();
             } else {
-                alert("Credentials rejected by the void.");
+                alert("The machine rejected your credentials.");
             }
         }
 
         async function sendMessage() {
             const input = document.getElementById('user-input');
+            const model = document.getElementById('model-select').value;
             const box = document.getElementById('chat-box');
             const msg = input.value.trim();
             if(!msg) return;
 
-            // Clear placeholder if first message
-            if (box.innerText.includes("The abyss gazes back")) box.innerHTML = "";
+            if (box.innerText.includes("Initialize the machine")) box.innerHTML = "";
 
-            box.innerHTML += `<div class="flex justify-end animate-fade-in"><div class="bg-[#a87ffb] text-black px-4 py-3 rounded-2xl text-sm font-bold max-w-[80%] shadow-lg">${msg}</div></div>`;
+            // User Message
+            box.innerHTML += `<div class="flex justify-end animate-fade"><div class="bg-[#a87ffb] text-black px-4 py-3 rounded-2xl text-sm font-bold max-w-[85%] shadow-xl">${msg}</div></div>`;
             input.value = "";
             
             const typingId = "typing-" + Date.now();
-            box.innerHTML += `<div id="${typingId}" class="flex justify-start"><div class="bg-[#16161a] border border-[#2d2d35] p-4 rounded-2xl text-sm italic text-gray-500">Processing...</div></div>`;
+            box.innerHTML += `<div id="${typingId}" class="flex justify-start"><div class="bg-[#16161a] border border-[#2d2d35] p-4 rounded-2xl text-sm italic text-gray-500">Querying ${model.toUpperCase()}...</div></div>`;
             box.scrollTop = box.scrollHeight;
 
             try {
                 const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ message: msg })
+                    body: JSON.stringify({ message: msg, model: model })
                 });
                 const data = await res.json();
                 document.getElementById(typingId).remove();
                 
-                box.innerHTML += `<div class="flex justify-start animate-fade-in"><div class="bg-[#1a1a24] border border-[#2d2d35] p-4 rounded-2xl text-sm text-white max-w-[80%] shadow-sm">${data.reply}</div></div>`;
+                // AI Response
+                box.innerHTML += `<div class="flex justify-start animate-fade"><div class="bg-[#1a1a24] border border-[#2d2d35] p-4 rounded-2xl text-sm text-white max-w-[85%] shadow-sm">${data.reply}</div></div>`;
 
-                // SMART HISTORY LOGIC
+                // Smart Sidebar History Logic
                 if (currentChatId === null) {
                     currentChatId = Date.now();
                     history.unshift({ 
                         id: currentChatId, 
-                        title: msg.length > 20 ? msg.substring(0, 20) + "..." : msg, 
+                        title: msg.length > 25 ? msg.substring(0, 25) + "..." : msg, 
                         content: box.innerHTML 
                     });
                 } else {
@@ -147,13 +161,13 @@
                 updateHistoryUI();
 
             } catch (err) {
-                document.getElementById(typingId).innerHTML = `<div class="text-red-500 text-xs">The void is currently full. Try again.</div>`;
+                document.getElementById(typingId).innerHTML = `<div class="text-red-500 text-xs font-bold">The void is busy. Try again.</div>`;
             }
             box.scrollTop = box.scrollHeight;
         }
 
         function createNewChat() {
-            document.getElementById('chat-box').innerHTML = '<div class="text-center text-gray-700 text-[10px] uppercase tracking-[0.3em] mt-20">The abyss gazes back</div>';
+            document.getElementById('chat-box').innerHTML = '<div class="text-center text-gray-700 text-[10px] uppercase tracking-[0.3em] mt-20">Initialize the machine...</div>';
             currentChatId = null;
             updateHistoryUI();
         }
