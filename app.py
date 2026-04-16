@@ -1,23 +1,16 @@
 import os
 import sqlite3
+import requests
 from flask import Flask, request, jsonify, send_from_directory
 
 app = Flask(__name__, static_folder='.')
-
-# Path for the persistent volume
 DB_PATH = '/app/data/users.db'
 
+# Initialize Database in Volume
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
-        )
-    ''')
+    conn.execute('CREATE TABLE IF NOT EXISTS users (username TEXT UNIQUE, password TEXT)')
     conn.commit()
     conn.close()
 
@@ -27,37 +20,41 @@ init_db()
 def index():
     return send_from_directory('.', 'index.html')
 
-@app.route('/api/auth/signup', methods=['POST'])
-def signup():
+@app.route('/api/auth/<type>', methods=['POST'])
+def auth(type):
     data = request.json
-    username = data.get('username', '').strip().lower()
-    password = data.get('password', '')
-    if len(password) < 3:
-        return jsonify({"error": "Password too weak"}), 400
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
-        conn.commit()
-        conn.close()
-        return jsonify({"success": True})
-    except sqlite3.IntegrityError:
-        return jsonify({"error": "Name already taken"}), 400
-
-@app.route('/api/auth/login', methods=['POST'])
-def login():
-    data = request.json
-    username = data.get('username', '').strip().lower()
-    password = data.get('password', '')
+    u, p = data.get('username', '').lower(), data.get('password', '')
     conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password))
-    user = cursor.fetchone()
-    conn.close()
-    if user:
-        return jsonify({"success": True})
-    return jsonify({"error": "Invalid credentials"}), 401
+    if type == 'signup':
+        try:
+            conn.execute('INSERT INTO users VALUES (?,?)', (u, p))
+            conn.commit()
+            return jsonify({"success": True})
+        except: return jsonify({"error": "User already exists"}), 400
+    else:
+        user = conn.execute('SELECT * FROM users WHERE username=? AND password=?', (u,p)).fetchone()
+        return jsonify({"success": True}) if user else (jsonify({"error": "Invalid login"}), 401)
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    user_msg = request.json.get('message')
+    
+    # Using Pollinations AI (Free Provider for Gemini/GPT models)
+    # We pass the message via URL encoding
+    try:
+        # Prompt engineering to keep the 'Horror' vibe
+        system_prompt = "You are Horror.ai, a dark and mysterious AI. "
+        url = f"https://text.pollinations.ai/{system_prompt}{user_msg}?model=openai"
+        
+        response = requests.get(url)
+        if response.status_code == 200:
+            return jsonify({"reply": response.text})
+        else:
+            return jsonify({"reply": "The void is silent right now. Try again later."})
+    except Exception as e:
+        return jsonify({"reply": f"Connection to the abyss failed: {str(e)}"}), 500
 
 if __name__ == '__main__':
+    # Railway environment port
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port)
