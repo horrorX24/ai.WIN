@@ -3,117 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Horror.ai | The Void</title>
+    <title>Horror.ai | The Voice</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #050507; color: #e2e2e6; font-family: 'Courier New', Courier, monospace; overflow: hidden; }
+        .gemini-font { font-family: 'Montserrat', sans-serif; }
+        body { background-color: #0f0f12; color: #e2e2e6; overflow: hidden; }
         .hidden { display: none !important; }
-        .glow:focus { box-shadow: 0 0 10px #a87ffb; }
-        .fade-in { animation: fadeIn 0.6s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         #chat-box::-webkit-scrollbar { width: 4px; }
-        #chat-box::-webkit-scrollbar-thumb { background: #1a1a24; border-radius: 10px; }
+        #chat-box::-webkit-scrollbar-thumb { background: #2d2d35; border-radius: 10px; }
+        .input-container { background: #16161a; border-radius: 20px; border: 1px solid #2d2d35; }
     </style>
 </head>
-<body class="h-screen flex items-center justify-center p-4">
+<body class="min-h-screen flex items-center justify-center">
 
-    <div id="auth-container" class="bg-[#0c0c10] border-2 border-[#1a1a24] p-10 rounded-3xl w-full max-w-sm shadow-2xl fade-in z-50">
-        <h1 class="text-5xl font-black text-[#a87ffb] mb-1 text-center tracking-tighter italic">Horror.ai</h1>
-        <p class="text-[9px] text-gray-600 text-center mb-10 tracking-[0.3em] font-bold">DATABASE ENCRYPTED</p>
+    <div id="auth-container" class="bg-[#16161a] border border-[#2d2d35] p-8 rounded-3xl w-full max-w-sm shadow-2xl z-50">
+        <h1 class="gemini-font text-4xl font-bold text-[#a87ffb] mb-2 text-center italic">Horror.ai</h1>
+        <p class="text-gray-500 text-[10px] text-center mb-8 uppercase tracking-widest">Enter the Abyss</p>
 
-        <div id="auth-box" class="space-y-5">
-            <input type="text" id="username" placeholder="IDENTITY NAME" class="w-full bg-[#050507] border border-[#2d2d35] p-4 rounded-xl outline-none glow text-[#a87ffb] placeholder-gray-700">
-            <input type="password" id="password" placeholder="SECURITY PHRASE" class="w-full bg-[#050507] border border-[#2d2d35] p-4 rounded-xl outline-none glow text-[#a87ffb] placeholder-gray-700">
-            <div class="pt-4 flex flex-col gap-4">
-                <button onclick="handleAuth('login')" class="w-full bg-[#a87ffb] text-black font-black py-4 rounded-xl hover:bg-[#c4a6ff] transition-all">ACCESS PORTAL</button>
-                <button onclick="handleAuth('signup')" class="w-full bg-transparent border border-[#2d2d35] text-gray-500 font-bold py-3 rounded-xl hover:text-[#a87ffb]">CREATE NEW SOUL</button>
-            </div>
+        <div class="space-y-4">
+            <input type="text" id="username" placeholder="Username" class="w-full bg-[#0f0f12] border border-[#2d2d35] p-3 rounded-xl outline-none focus:border-[#a87ffb] text-white">
+            <input type="password" id="password" placeholder="Password" class="w-full bg-[#0f0f12] border border-[#2d2d35] p-3 rounded-xl outline-none focus:border-[#a87ffb] text-white">
+            <button onclick="handleAuth('login')" class="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200 transition-all">Login</button>
+            <button onclick="handleAuth('signup')" class="w-full bg-transparent border border-[#a87ffb] text-[#a87ffb] font-bold py-3 rounded-xl hover:bg-[#a87ffb]/10">Sign Up</button>
         </div>
     </div>
 
-    <div id="main-interface" class="hidden fixed inset-0 flex flex-col fade-in">
-        <header class="p-4 border-b border-[#1a1a24] flex justify-between items-center bg-[#0c0c10]">
-            <span class="font-black text-[#a87ffb] text-xl italic">Horror.ai</span>
-            <div class="flex gap-4">
-                <button onclick="toggleSettings()" class="text-gray-500 hover:text-white text-xs uppercase tracking-widest">Settings</button>
-                <button onclick="location.reload()" class="text-gray-700 hover:text-red-500 text-xs uppercase tracking-widest">Sever</button>
-            </div>
-        </header>
-
-        <main class="flex-1 flex flex-col max-w-4xl mx-auto w-full overflow-hidden">
-            <div id="chat-box" class="flex-1 overflow-y-auto p-6 space-y-4 font-mono">
-                <div class="text-[#a87ffb] opacity-50 text-xs">-- CONNECTION ESTABLISHED --</div>
-            </div>
+    <div id="main-interface" class="hidden fixed inset-0 flex w-full h-screen overflow-hidden">
+        
+        <aside class="w-72 flex flex-col border-r border-[#2d2d35] bg-[#0f0f12]">
             <div class="p-6">
-                <div class="flex gap-4 bg-[#0c0c10] border border-[#1a1a24] p-2 rounded-2xl">
-                    <input type="text" id="chat-input" placeholder="Type into the void..." class="flex-1 bg-transparent px-4 text-[#a87ffb] outline-none">
-                    <button onclick="sendMessage()" class="bg-[#a87ffb] text-black px-6 py-2 rounded-xl font-black hover:bg-[#c4a6ff]">SEND</button>
+                <button onclick="location.reload()" class="w-full flex items-center justify-center gap-2 bg-[#212129] hover:bg-[#2d2d35] text-[#e2e2e6] font-medium py-3 px-4 rounded-full transition-all text-sm">
+                    New Chat / Logout
+                </button>
+            </div>
+            <div class="px-6 py-2 text-xs font-bold text-gray-500 uppercase">Remote Keys</div>
+            <div class="px-6">
+                <button onclick="openModal()" class="text-[#a87ffb] text-xs font-bold hover:underline">GET API ACCESS</button>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col">
+            <header class="p-4 flex justify-center border-b border-[#2d2d35]">
+                <h1 class="gemini-font text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#a87ffb] to-[#7f5fff]">Horror.ai</h1>
+            </header>
+
+            <div class="flex-1 flex flex-col relative overflow-hidden max-w-4xl mx-auto w-full">
+                <div id="chat-box" class="flex-1 overflow-y-auto p-8 space-y-6">
+                    <p class="text-center text-gray-600 text-[10px] uppercase tracking-widest">Encrypted session active</p>
+                </div>
+                
+                <div class="p-6">
+                    <div class="input-container flex items-center px-6 py-2 gap-4">
+                        <input type="text" id="user-input" placeholder="Ask Horror.ai..." class="flex-1 py-3 bg-transparent text-[#e2e2e6] outline-none">
+                        <button onclick="sendMessage()" class="bg-[#a87ffb] hover:bg-[#9060eb] text-black font-bold py-2 px-6 rounded-xl transition-all">Send</button>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
 
-    <div id="settings-panel" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[100]">
-        <div class="bg-[#0c0c10] border border-[#a87ffb] p-8 rounded-3xl w-full max-w-md">
-            <h2 class="text-[#a87ffb] font-black text-2xl mb-6 italic">SYSTEM CONFIG</h2>
-            <div class="space-y-6">
-                <div>
-                    <p class="text-[10px] text-gray-500 uppercase mb-2">Remote API Access Key</p>
-                    <div class="flex flex-col gap-2">
-                        <div id="api-key-display" class="bg-[#050507] border border-[#2d2d35] p-3 rounded-lg text-[10px] text-[#a87ffb] break-all font-mono">
-                            No key generated.
-                        </div>
-                        <button onclick="generateAPIKey()" class="text-[10px] bg-[#a87ffb] text-black font-bold py-2 rounded uppercase">Generate New Key</button>
-                    </div>
-                </div>
-            </div>
-            <button onclick="toggleSettings()" class="mt-8 text-xs text-gray-600 underline w-full">Close Settings</button>
+    <div id="api-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-[100]">
+        <div class="bg-[#16161a] border border-[#2d2d35] p-8 rounded-2xl max-w-md w-full text-center">
+            <h2 class="gemini-font text-2xl mb-4 font-bold text-white">Remote API Access</h2>
+            <div id="api-result" class="hidden mb-6 p-4 bg-[#0f0f12] border border-[#2d2d35] rounded-xl font-mono text-[#a87ffb] text-[10px] break-all"></div>
+            <button onclick="generateAPIKey()" class="w-full bg-[#a87ffb] text-black font-bold py-3 rounded-xl mb-4">Generate 11-Block Key</button>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-white text-xs">Close</button>
         </div>
     </div>
 
     <script>
-        let currentUser = "";
-
         async function handleAuth(type) {
             const user = document.getElementById('username').value;
             const pass = document.getElementById('password').value;
-            if(!user || !pass) return alert("REQUIRED: CREDENTIALS");
+            if(!user || !pass) return;
 
-            const response = await fetch(`/api/auth/${type}`, {
+            const res = await fetch(`/api/auth/${type}`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ username: user, password: pass })
             });
 
-            if (response.ok) {
-                currentUser = user;
+            if (res.ok) {
                 document.getElementById('auth-container').classList.add('hidden');
                 document.getElementById('main-interface').classList.remove('hidden');
             } else {
-                const data = await response.json();
-                alert("DENIED: " + data.error);
+                alert("The machine rejects your credentials.");
             }
         }
 
-        function sendMessage() {
-            const input = document.getElementById('chat-input');
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
             const box = document.getElementById('chat-box');
-            if(!input.value.trim()) return;
+            const msg = input.value.trim();
+            if(!msg) return;
 
-            box.innerHTML += `<div class="flex justify-end"><div class="bg-[#a87ffb] text-black px-4 py-2 rounded-xl text-sm font-bold max-w-xs">${input.value}</div></div>`;
+            // User UI
+            box.innerHTML += `<div class="flex justify-end"><div class="bg-[#a87ffb] text-black px-4 py-3 rounded-2xl text-sm font-bold max-w-xs">${msg}</div></div>`;
             input.value = "";
+            
+            // Thinking state
+            const id = "ai-" + Date.now();
+            box.innerHTML += `<div id="${id}" class="flex justify-start"><div class="bg-[#16161a] border border-[#2d2d35] p-4 rounded-2xl text-sm italic text-gray-500">The void is processing...</div></div>`;
+            box.scrollTop = box.scrollHeight;
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await res.json();
+                document.getElementById(id).innerHTML = `<div class="bg-[#1a1a24] border border-[#2d2d35] p-4 rounded-2xl text-sm text-white max-w-sm">${data.reply}</div>`;
+            } catch {
+                document.getElementById(id).innerText = "Communication failure.";
+            }
             box.scrollTop = box.scrollHeight;
         }
 
-        function toggleSettings() {
-            document.getElementById('settings-panel').classList.toggle('hidden');
-        }
+        function openModal() { document.getElementById('api-modal').classList.remove('hidden'); document.getElementById('api-modal').classList.add('flex'); }
+        function closeModal() { document.getElementById('api-modal').classList.add('hidden'); }
 
         function generateAPIKey() {
             const hex = () => Math.floor(Math.random() * 0xffff).toString(16).padStart(4, '0');
-            // Format: horror-####-####-####-####-####-####-####-####-####-####-#### (11 blocks)
             const key = "horror-" + Array.from({length: 11}, hex).join('-');
-            document.getElementById('api-key-display').innerText = key;
+            const res = document.getElementById('api-result');
+            res.innerText = key;
+            res.classList.remove('hidden');
         }
     </script>
 </body>
