@@ -22,20 +22,30 @@ def index():
 @app.route('/api/chat', methods=['POST'])
 def chat():
     user_msg = request.json.get('message')
-    try:
-        # Use Pollinations with a timeout to prevent hanging on provider errors
-        res = requests.get(f"https://text.pollinations.ai/{user_msg}?model=gemini", timeout=12)
-        if res.status_code == 200:
-            return jsonify({"reply": res.text})
-        return jsonify({"reply": "The void is busy. Try again."}), 502
-    except:
-        return jsonify({"reply": "The connection to the abyss was lost."}), 500
+    
+    # List of models to try if the first one fails
+    models = ["gemini", "openai", "mistral", "llama"]
+    
+    for model in models:
+        try:
+            # Adding a 5-second timeout so it switches fast if a model is slow
+            url = f"https://text.pollinations.ai/{user_msg}?model={model}&cache=false"
+            res = requests.get(url, timeout=5)
+            
+            if res.status_code == 200 and res.text.strip():
+                return jsonify({"reply": res.text})
+        except:
+            continue # Try the next model in the list
+            
+    return jsonify({"reply": "The abyss is currently full. Try again in a moment."}), 503
 
 @app.route('/api/auth/<action>', methods=['POST'])
 def auth(action):
     data = request.json
     u, p = data.get('username', '').lower(), data.get('password', '')
-    conn = sqlite3.connect(DB_PATH)
+    # Fallback to local DB if Volume isn't mounted yet
+    path = DB_PATH if os.path.exists('/app/data') else 'users.db'
+    conn = sqlite3.connect(path)
     if action == 'signup':
         try:
             conn.execute('INSERT INTO users VALUES (?,?)', (u, p))
